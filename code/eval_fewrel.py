@@ -450,6 +450,8 @@ def main():
 
     for x, mark in file_mark:
         print(x, mark)
+        if mark:
+          continue
         output_model_file = os.path.join(args.output_dir, x)
         model_state_dict = torch.load(output_model_file)
         model, _ = BertForSequenceClassification.from_pretrained(args.ernie_model, state_dict=model_state_dict, num_labels=len(label_list))
