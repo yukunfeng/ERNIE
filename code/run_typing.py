@@ -563,7 +563,8 @@ def main():
                     if global_step % 150 == 0 and global_step > 0:
                         model_to_save = model.module if hasattr(model, 'module') else model
                         output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-                        torch.save(model_to_save.state_dict(), output_model_file)
+                        if args.data_dir.lower().find('figer') < 0:
+                          torch.save(model_to_save.state_dict(), output_model_file)
             model_to_save = model.module if hasattr(model, 'module') else model
             output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(epoch))
             torch.save(model_to_save.state_dict(), output_model_file)

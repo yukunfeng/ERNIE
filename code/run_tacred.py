@@ -539,7 +539,8 @@ def main():
                 batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
                 input_ent = embed(input_ent+1).to(device) # -1 -> 0
-                loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
+                loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
+                #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
                 if args.gradient_accumulation_steps > 1:
