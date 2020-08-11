@@ -23,6 +23,8 @@ import unicodedata
 import os
 import logging
 
+from transformers import RobertaTokenizer
+
 from .file_utils import cached_path
 
 logger = logging.getLogger(__name__)
@@ -203,6 +205,56 @@ class BertTokenizer(object):
         return tokenizer
 
 
+class RobertaTokenizer(object):
+    """Runs end-to-end tokenization: punctuation splitting + reboertatokenizer"""
+
+    def __init__(self, vocab_file, do_lower_case=True, max_len=None):
+        self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
+        self.roberta_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
+
+    def tokenize(self, text, ents):
+        import ipdb
+        ipdb.set_trace()
+        split_tokens = []
+        split_ents = []
+        text, ents = self.basic_tokenizer.tokenize_for_roberta(text, ents)
+        ents = sorted(ents, key=lambda x: x[1], reverse=True)
+        # Add special symbol to mark entity start since RobertaTokenizer
+        # includes space.
+        ent_symbol = '^'
+        text = text.replace('^', ' ') # Do not hurt on positions.
+        for ent in ents:
+          ent_start = ent[1]
+          text = text[:ent_start] + ent_symbol + ' ' text[ent_start:] 
+
+        tmp_input_ids = self.roberta_tokenizer(text)['input_ids']
+
+        input_ids = []
+        split_ents = []
+        ents = sorted(ents, key=lambda x: x[1]) # Ascending
+        ent_i = 0
+        for input_id in tmp_input_ids:
+          # Int id of ent_symbol
+          if input_id ==  37249:
+            split_ents.append(ents[ent_i][0]) # Add QID of entity
+            ent_i += 1
+          else:
+            input_ids.append(input_id)
+            split_ents.append("UNK")
+
+        return input_ids, split_ents
+
+    @classmethod
+    def from_pretrained(cls, pretrained_model_name, cache_dir=None, *inputs, **kwargs):
+        """
+        Instantiate a PreTrainedBertModel from a pre-trained model file.
+        Download and cache the pre-trained model file if needed.
+        """
+        # Instantiate tokenizer.
+        tokenizer = cls(resolved_vocab_file, *inputs, **kwargs)
+        return tokenizer
+
+
 class BasicTokenizer(object):
     """Runs basic tokenization (punctuation splitting, lower casing, etc.)."""
 
@@ -213,6 +265,18 @@ class BasicTokenizer(object):
           do_lower_case: Whether to lower case the input.
         """
         self.do_lower_case = do_lower_case
+
+    def tokenize_for_roberta(self, text, ents):
+        """Tokenizes a piece of text."""
+        text, drop_idx = self._clean_text(text)
+        # update ents
+        if len(drop_idx) > 0:
+            for i, ent in enumerate(ents):
+                cnt = sum([True if j < ent[1] else False for j in drop_idx])
+                ent[1] -= cnt
+                cnt = sum([True if j < ent[2] else False for j in drop_idx])
+                ent[2] -= cnt
+        return text, ents
 
     def tokenize(self, text, ents):
         """Tokenizes a piece of text."""
