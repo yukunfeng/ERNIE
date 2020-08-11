@@ -244,8 +244,6 @@ class RobertaTokenizerEnt(object):
             else:
               split_ents.append("UNK")
           previ_id = input_id
-        import ipdb
-        ipdb.set_trace()
         return input_ids, split_ents
 
     @classmethod

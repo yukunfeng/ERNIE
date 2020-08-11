@@ -31,7 +31,7 @@ import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from torch.utils.data.distributed import DistributedSampler
 
-from transformers import RobertaForSequenceClassification
+from transformers import AutoConfig, AutoModelForSequenceClassification
 
 #  from knowledge_bert.tokenization import BertTokenizer
 from knowledge_bert.tokenization import RobertaTokenizerEnt
@@ -393,7 +393,15 @@ def main():
     #  model, _ = BertForSequenceClassification.from_pretrained(args.ernie_model,
               #  cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
               #  num_labels = num_labels)
-    model = RobertaForSequenceClassification.from_pretrained('args.ernie_model')
+    #  model = RobertaForSequenceClassification.from_pretrained('args.ernie_model')
+    config = AutoConfig.from_pretrained(
+        args.ernie_model,
+        num_labels=num_labels
+    )
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.ernie_model,
+        config=config
+    )
     if args.fp16:
         model.half()
     model.to(device)
@@ -447,11 +455,11 @@ def main():
 
         vecs = []
         vecs.append([0]*100)
-        with open("kg_embed/entity2vec.vec", 'r') as fin:
-            for line in fin:
-                vec = line.strip().split('\t')
-                vec = [float(x) for x in vec]
-                vecs.append(vec)
+        #  with open("kg_embed/entity2vec.vec", 'r') as fin:
+            #  for line in fin:
+                #  vec = line.strip().split('\t')
+                #  vec = [float(x) for x in vec]
+                #  vecs.append(vec)
         embed = torch.FloatTensor(vecs)
         embed = torch.nn.Embedding.from_pretrained(embed)
         #embed = torch.nn.Embedding(5041175, 100)
@@ -486,8 +494,9 @@ def main():
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
-                input_ent = embed(input_ent+1).to(device) # -1 -> 0
-                loss = model(inputs_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
+                #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
+                out = model(inputs_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
+                loss = out.loss
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
                 if n_gpu > 1:
