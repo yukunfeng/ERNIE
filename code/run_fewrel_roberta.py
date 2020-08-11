@@ -165,8 +165,6 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
             h[2] += 6
             t[1] += 2
             t[2] += 2
-        import ipdb
-        ipdb.set_trace()
         input_ids, ents = tokenizer.tokenize(ex_text_a, [h, t])
         if len([x for x in ents if x!="UNK"]) != 2:
             print(ents, len([x for x in ents if x[0]!="UNK"]))
@@ -212,8 +210,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
         if ex_index < 5:
             logger.info("*** Example ***")
             logger.info("guid: %s" % (example.guid))
-            logger.info("tokens: %s" % " ".join(
-                    [str(x) for x in tokens]))
+            #  logger.info("tokens: %s" % " ".join(
+                    #  [str(x) for x in tokens]))
             logger.info("ents: %s" % " ".join(
                     [str(x) for x in ents]))
             logger.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))

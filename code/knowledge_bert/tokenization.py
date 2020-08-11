@@ -225,23 +225,27 @@ class RobertaTokenizerEnt(object):
           ent_start = ent[1]
           text = text[:ent_start] + ent_symbol + ' ' + text[ent_start:] 
 
-        import ipdb
-        ipdb.set_trace()
         tmp_input_ids = self.roberta_tokenizer(text)['input_ids']
 
+        # Remove symbol and align ent to input_ids
         input_ids = []
         split_ents = []
         ents = sorted(ents, key=lambda x: x[1]) # Ascending
         ent_i = 0
+        previ_id = tmp_input_ids[0]
         for input_id in tmp_input_ids:
           # Int id of ent_symbol
-          if input_id ==  37249:
-            split_ents.append(ents[ent_i][0]) # Add QID of entity
-            ent_i += 1
-          else:
+          if input_id !=  37249:
             input_ids.append(input_id)
-            split_ents.append("UNK")
-
+            # Current id is start of one ent.
+            if previ_id ==  37249:
+              split_ents.append(ents[ent_i][0]) # Add QID of entity
+              ent_i += 1
+            else:
+              split_ents.append("UNK")
+          previ_id = input_id
+        import ipdb
+        ipdb.set_trace()
         return input_ids, split_ents
 
     @classmethod
