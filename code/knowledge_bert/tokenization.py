@@ -213,8 +213,6 @@ class RobertaTokenizerEnt(object):
         self.roberta_tokenizer = RobertaTokenizer.from_pretrained("roberta-base")
 
     def tokenize(self, text, ents):
-        import ipdb
-        ipdb.set_trace()
         split_tokens = []
         split_ents = []
         text, ents = self.basic_tokenizer.tokenize_for_roberta(text, ents)

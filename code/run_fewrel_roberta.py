@@ -165,52 +165,19 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
             h[2] += 6
             t[1] += 2
             t[2] += 2
-        tokens_a, entities_a = tokenizer.tokenize(ex_text_a, [h, t])
+        import ipdb
+        ipdb.set_trace()
+        input_ids, entities_a = tokenizer.tokenize(ex_text_a, [h, t])
         if len([x for x in entities_a if x!="UNK"]) != 2:
             print(entities_a, len([x for x in entities_a if x[0]!="UNK"]))
             exit(1)
 
-        tokens_b = None
-        if example.text_b:
-            tokens_b, entities_b = tokenizer.tokenize(example.text_b[0], [x for x in example.text_b[1] if x[-1]>threshold])
-            # Modifies `tokens_a` and `tokens_b` in place so that the total
-            # length is less than the specified length.
-            # Account for [CLS], [SEP], [SEP] with "- 3"
-            _truncate_seq_pair(tokens_a, tokens_b, entities_a, entities_b, max_seq_length - 3)
-        else:
-            # Account for [CLS] and [SEP] with "- 2"
-            if len(tokens_a) > max_seq_length - 2:
-                tokens_a = tokens_a[:(max_seq_length - 2)]
-                entities_a = entities_a[:(max_seq_length - 2)]
+        if len(input_ids) > max_seq_length:
+            input_ids = input_ids[:max_seq_length - 1]
+            input_ids.append(2)   # Add sep_id manually for roberta tokenizer.
+            entities_a = entities_a[:max_seq_length]
+        segment_ids = [0] * len(input_ids)
 
-        # The convention in BERT is:
-        # (a) For sequence pairs:
-        #  tokens:   [CLS] is this jack ##son ##ville ? [SEP] no it is not . [SEP]
-        #  type_ids: 0   0  0    0    0     0       0 0    1  1  1  1   1 1
-        # (b) For single sequences:
-        #  tokens:   [CLS] the dog is hairy . [SEP]
-        #  type_ids: 0   0   0   0  0     0 0
-        #
-        # Where "type_ids" are used to indicate whether this is the first
-        # sequence or the second sequence. The embedding vectors for `type=0` and
-        # `type=1` were learned during pre-training and are added to the wordpiece
-        # embedding vector (and position vector). This is not *strictly* necessary
-        # since the [SEP] token unambigiously separates the sequences, but it makes
-        # it easier for the model to learn the concept of sequences.
-        #
-        # For classification tasks, the first vector (corresponding to [CLS]) is
-        # used as as the "sentence vector". Note that this only makes sense because
-        # the entire model is fine-tuned.
-        tokens = ["[CLS]"] + tokens_a + ["[SEP]"]
-        ents = ["UNK"] + entities_a + ["UNK"]
-        segment_ids = [0] * len(tokens)
-
-        if tokens_b:
-            tokens += tokens_b + ["[SEP]"]
-            ents += entities_b + ["UNK"]
-            segment_ids += [1] * (len(tokens_b) + 1)
-
-        input_ids = tokenizer.convert_tokens_to_ids(tokens)
         input_ent = []
         ent_mask = []
         for ent in ents:
