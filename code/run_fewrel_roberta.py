@@ -32,7 +32,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 from torch.utils.data.distributed import DistributedSampler
 
 #  from knowledge_bert.tokenization import BertTokenizer
-from knowledge_bert.tokenization import RobertaTokenizer
+from knowledge_bert.tokenization import RobertaTokenizerEnt
 from knowledge_bert.modeling import BertForSequenceClassification
 from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
@@ -414,7 +414,7 @@ def main():
     num_labels = num_labels_task
     label_list = None
 
-    tokenizer = RobertaTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
+    tokenizer = RobertaTokenizerEnt.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
 
     train_examples = None
     num_train_steps = None

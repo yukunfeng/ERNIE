@@ -205,7 +205,7 @@ class BertTokenizer(object):
         return tokenizer
 
 
-class RobertaTokenizer(object):
+class RobertaTokenizerEnt(object):
     """Runs end-to-end tokenization: punctuation splitting + reboertatokenizer"""
 
     def __init__(self, vocab_file, do_lower_case=True, max_len=None):
@@ -225,7 +225,7 @@ class RobertaTokenizer(object):
         text = text.replace('^', ' ') # Do not hurt on positions.
         for ent in ents:
           ent_start = ent[1]
-          text = text[:ent_start] + ent_symbol + ' ' text[ent_start:] 
+          text = text[:ent_start] + ent_symbol + ' ' + text[ent_start:] 
 
         tmp_input_ids = self.roberta_tokenizer(text)['input_ids']
 
@@ -251,7 +251,7 @@ class RobertaTokenizer(object):
         Download and cache the pre-trained model file if needed.
         """
         # Instantiate tokenizer.
-        tokenizer = cls(resolved_vocab_file, *inputs, **kwargs)
+        tokenizer = cls("", *inputs, **kwargs)
         return tokenizer
 
 
@@ -269,6 +269,8 @@ class BasicTokenizer(object):
     def tokenize_for_roberta(self, text, ents):
         """Tokenizes a piece of text."""
         text, drop_idx = self._clean_text(text)
+        if self.do_lower_case:
+          text = text.lower()
         # update ents
         if len(drop_idx) > 0:
             for i, ent in enumerate(ents):
