@@ -167,15 +167,15 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
             t[2] += 2
         import ipdb
         ipdb.set_trace()
-        input_ids, entities_a = tokenizer.tokenize(ex_text_a, [h, t])
-        if len([x for x in entities_a if x!="UNK"]) != 2:
-            print(entities_a, len([x for x in entities_a if x[0]!="UNK"]))
+        input_ids, ents = tokenizer.tokenize(ex_text_a, [h, t])
+        if len([x for x in ents if x!="UNK"]) != 2:
+            print(ents, len([x for x in ents if x[0]!="UNK"]))
             exit(1)
 
         if len(input_ids) > max_seq_length:
             input_ids = input_ids[:max_seq_length - 1]
             input_ids.append(2)   # Add sep_id manually for roberta tokenizer.
-            entities_a = entities_a[:max_seq_length]
+            ents = ents[:max_seq_length]
         segment_ids = [0] * len(input_ids)
 
         input_ent = []

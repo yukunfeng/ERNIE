@@ -225,6 +225,8 @@ class RobertaTokenizerEnt(object):
           ent_start = ent[1]
           text = text[:ent_start] + ent_symbol + ' ' + text[ent_start:] 
 
+        import ipdb
+        ipdb.set_trace()
         tmp_input_ids = self.roberta_tokenizer(text)['input_ids']
 
         input_ids = []
