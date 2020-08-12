@@ -2,14 +2,16 @@ set -x
 
 # model="ernie_base"
 # model="bert_base_under_ernie"
-model="bert_base"
+# model="bert_base"
+model="bert_wwm_base"
 # model="bert_standard"
 # model="bert_descrip_same_time"
 # model="bert_descrip_same_time_under_ernie"
 # model="bert_descrip_same_time_contra"
 # model="bert_descrip_as_input"
 
-data="data/tacred_linked"
+# data="data/tacred_linked"
+data="data/tacred"
 
 output="${model}_$(basename $data)_output"
 

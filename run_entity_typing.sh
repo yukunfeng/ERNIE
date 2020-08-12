@@ -7,7 +7,8 @@ set -x
 
 # model="ernie_base"
 # model="bert_base_under_ernie"
-model="bert_base"
+# model="bert_base"
+model="bert_wwm_base"
 # model="bert_standard"
 # model="bert_descrip_same_time"
 # model="bert_descrip_same_time_contra"

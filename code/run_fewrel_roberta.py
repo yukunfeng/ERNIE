@@ -495,8 +495,6 @@ def main():
                 batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
                 #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
-                import ipdb
-                ipdb.set_trace()
                 out = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
                 loss = out.loss
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
