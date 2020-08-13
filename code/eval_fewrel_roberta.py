@@ -256,7 +256,7 @@ def _truncate_seq_pair(tokens_a, tokens_b, ents_a, ents_b, max_length):
 
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
-    return np.sum(outputs == labels)
+    return np.sum(outputs == labels), outputs
 
 def warmup_linear(x, warmup=0.002):
     if x < warmup:
@@ -303,6 +303,10 @@ def main():
                         default=32,
                         type=int,
                         help="Total batch size for training.")
+    parser.add_argument("--eval_batch_size",
+                        default=8,
+                        type=int,
+                        help="Total batch size for eval.")
     parser.add_argument("--learning_rate",
                         default=5e-5,
                         type=float,
@@ -365,21 +369,14 @@ def main():
         raise ValueError("Invalid gradient_accumulation_steps parameter: {}, should be >= 1".format(
                             args.gradient_accumulation_steps))
 
-    args.train_batch_size = int(args.train_batch_size / args.gradient_accumulation_steps)
-
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     if n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-    if not args.do_train:
+    if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
-
-    if os.path.exists(args.output_dir) and os.listdir(args.output_dir) and args.do_train:
-        raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
-    os.makedirs(args.output_dir, exist_ok=True)
-
 
     processor = processors()
     num_labels = num_labels_task
@@ -390,149 +387,119 @@ def main():
     train_examples = None
     num_train_steps = None
     train_examples, label_list = processor.get_train_examples(args.data_dir)
-    num_train_steps = int(
-        len(train_examples) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
+    vecs = []
+    vecs.append([0]*100)
+    #  with open("kg_embed/entity2vec.vec", 'r') as fin:
+        #  for line in fin:
+            #  vec = line.strip().split('\t')
+            #  vec = [float(x) for x in vec]
+            #  vecs.append(vec)
+    embed = torch.FloatTensor(vecs)
+    embed = torch.nn.Embedding.from_pretrained(embed)
+    #embed = torch.nn.Embedding(5041175, 100)
 
-    # Prepare model
-    #  model, _ = BertForSequenceClassification.from_pretrained(args.ernie_model,
-              #  cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
-              #  num_labels = num_labels)
-    #  model = RobertaForSequenceClassification.from_pretrained('args.ernie_model')
-    config = AutoConfig.from_pretrained(
-        args.ernie_model,
-        num_labels=num_labels
-    )
-    model = AutoModelForSequenceClassification.from_pretrained(
-        args.ernie_model,
-        config=config
-    )
-    if args.fp16:
-        model.half()
-    model.to(device)
-    if args.local_rank != -1:
-        try:
-            from apex.parallel import DistributedDataParallel as DDP
-        except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training.")
+    logger.info("Shape of entity embedding: "+str(embed.weight.size()))
+    del vecs
 
-        model = DDP(model)
-    elif n_gpu > 1:
-        model = torch.nn.DataParallel(model)
+    filenames = os.listdir(args.output_dir)
+    filenames = [x for x in filenames if "pytorch_model.bin_" in x]
 
-    # Prepare optimizer
-    param_optimizer = list(model.named_parameters())
-    no_grad = ['bert.encoder.layer.11.output.dense_ent', 'bert.encoder.layer.11.output.LayerNorm_ent']
-    param_optimizer = [(n, p) for n, p in param_optimizer if not any(nd in n for nd in no_grad)]
-    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    optimizer_grouped_parameters = [
-        {'params': [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)], 'weight_decay': 0.01},
-        {'params': [p for n, p in param_optimizer if any(nd in n for nd in no_decay)], 'weight_decay': 0.0}
-        ]
-    t_total = num_train_steps
-    if args.local_rank != -1:
-        t_total = t_total // torch.distributed.get_world_size()
-    if args.fp16:
-        try:
-            from apex.optimizers import FP16_Optimizer
-            from apex.optimizers import FusedAdam
-        except ImportError:
-            raise ImportError("Please install apex from https://www.github.com/nvidia/apex to use distributed and fp16 training.")
+    file_mark = []
+    for x in filenames:
+        file_mark.append([x, True])
+        file_mark.append([x, False])
 
-        optimizer = FusedAdam(optimizer_grouped_parameters,
-                              lr=args.learning_rate,
-                              bias_correction=False,
-                              max_grad_norm=1.0)
-        if args.loss_scale == 0:
-            optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
+    eval_examples = processor.get_dev_examples(args.data_dir)
+    dev = convert_examples_to_features(
+        eval_examples, label_list, args.max_seq_length, tokenizer, args.threshold)
+    eval_examples = processor.get_test_examples(args.data_dir)
+    test = convert_examples_to_features(
+        eval_examples, label_list, args.max_seq_length, tokenizer, args.threshold)
+
+    for x, mark in file_mark:
+        print(x, mark)
+        #  if mark:
+          #  continue
+        output_model_dir = os.path.join(args.output_dir, x)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            output_model_dir
+        )
+        model.to(device)
+
+        if mark:
+            eval_features = dev
         else:
-            optimizer = FP16_Optimizer(optimizer, static_loss_scale=args.loss_scale)
+            eval_features = test
+        logger.info("***** Running evaluation *****")
+        logger.info("  Num examples = %d", len(eval_examples))
+        logger.info("  Batch size = %d", args.eval_batch_size)
+        # zeros = [0 for _ in range(args.max_seq_length)]
+        # zeros_ent = [0 for _ in range(100)]
+        # zeros_ent = [zeros_ent for _ in range(args.max_seq_length)]
+        all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
+        all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
+        all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
+        all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
+        all_ent = torch.tensor([f.input_ent for f in eval_features], dtype=torch.long)
+        all_ent_masks = torch.tensor([f.ent_mask for f in eval_features], dtype=torch.long)
+        eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_ent, all_ent_masks, all_label_ids)
+        # Run prediction for full data
+        eval_sampler = SequentialSampler(eval_data)
+        eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
-    else:
-        optimizer = BertAdam(optimizer_grouped_parameters,
-                             lr=args.learning_rate,
-                             warmup=args.warmup_proportion,
-                             t_total=t_total)
-    global_step = 0
-    if args.do_train:
-        train_features = convert_examples_to_features(
-            train_examples, label_list, args.max_seq_length, tokenizer, args.threshold)
-
-        vecs = []
-        vecs.append([0]*100)
-        #  with open("kg_embed/entity2vec.vec", 'r') as fin:
-            #  for line in fin:
-                #  vec = line.strip().split('\t')
-                #  vec = [float(x) for x in vec]
-                #  vecs.append(vec)
-        embed = torch.FloatTensor(vecs)
-        embed = torch.nn.Embedding.from_pretrained(embed)
-        #embed = torch.nn.Embedding(5041175, 100)
-
-        logger.info("Shape of entity embedding: "+str(embed.weight.size()))
-        del vecs
-
-
-        logger.info("***** Running training *****")
-        logger.info("  Num examples = %d", len(train_examples))
-        logger.info("  Batch size = %d", args.train_batch_size)
-        logger.info("  Num steps = %d", num_train_steps)
-        all_input_ids = torch.tensor([f.input_ids for f in train_features], dtype=torch.long)
-        all_input_mask = torch.tensor([f.input_mask for f in train_features], dtype=torch.long)
-        all_segment_ids = torch.tensor([f.segment_ids for f in train_features], dtype=torch.long)
-        all_label_ids = torch.tensor([f.label_id for f in train_features], dtype=torch.long)
-        all_ent = torch.tensor([f.input_ent for f in train_features], dtype=torch.long)
-        all_ent_masks = torch.tensor([f.ent_mask for f in train_features], dtype=torch.long)
-        train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_ent, all_ent_masks, all_label_ids)
-        if args.local_rank == -1:
-            train_sampler = RandomSampler(train_data)
+        if mark:
+            output_eval_file = os.path.join(args.output_dir, "eval_results_{}.txt".format(x.split("_")[-1]))
+            output_file_pred = os.path.join(args.output_dir, "eval_pred_{}.txt".format(x.split("_")[-1]))
+            output_file_glod = os.path.join(args.output_dir, "eval_gold_{}.txt".format(x.split("_")[-1]))
         else:
-            train_sampler = DistributedSampler(train_data)
-        train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size)
+            output_eval_file = os.path.join(args.output_dir, "test_results_{}.txt".format(x.split("_")[-1]))
+            output_file_pred = os.path.join(args.output_dir, "test_pred_{}.txt".format(x.split("_")[-1]))
+            output_file_glod = os.path.join(args.output_dir, "test_gold_{}.txt".format(x.split("_")[-1]))
 
-        output_loss_file = os.path.join(args.output_dir, "loss")
-        loss_fout = open(output_loss_file, 'w')
-        model.train()
-        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
-            tr_loss = 0
-            nb_tr_examples, nb_tr_steps = 0, 0
-            for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
-                batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
-                input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
-                #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
-                out = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
-                loss = out.loss
-                #  loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
-                #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
-                if n_gpu > 1:
-                    loss = loss.mean() # mean() to average on multi-gpu.
-                if args.gradient_accumulation_steps > 1:
-                    loss = loss / args.gradient_accumulation_steps
+        fpred = open(output_file_pred, "w")
+        fgold = open(output_file_glod, "w")
 
-                if args.fp16:
-                    optimizer.backward(loss)
-                else:
-                    loss.backward()
+        model.eval()
+        eval_loss, eval_accuracy = 0, 0
+        nb_eval_steps, nb_eval_examples = 0, 0
+        for input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids in eval_dataloader:
+            #  input_ent = embed(input_ent+1) # -1 -> 0
+            input_ids = input_ids.to(device)
+            input_mask = input_mask.to(device)
+            segment_ids = segment_ids.to(device)
+            input_ent = input_ent.to(device)
+            ent_mask = ent_mask.to(device)
+            label_ids = label_ids.to(device)
 
-                loss_fout.write("{}\n".format(loss.item()))
-                tr_loss += loss.item()
-                nb_tr_examples += input_ids.size(0)
-                nb_tr_steps += 1
-                if (step + 1) % args.gradient_accumulation_steps == 0:
-                    # modify learning rate with special warm up BERT uses
-                    lr_this_step = args.learning_rate * warmup_linear(global_step/t_total, args.warmup_proportion)
-                    for param_group in optimizer.param_groups:
-                        param_group['lr'] = lr_this_step
-                    optimizer.step()
-                    optimizer.zero_grad()
-                    global_step += 1
-            output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-            os.system(f"mkdir -p {output_model_dir}")
-            model.save_pretrained(output_model_dir)
+            with torch.no_grad():
+                tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
+                logits = model(input_ids, segment_ids, input_mask, input_ent, ent_mask)
 
-        # Save a trained model
-        output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-        os.system(f"mkdir -p {output_model_dir}")
-        model.save_pretrained(output_model_dir)
+            logits = logits.detach().cpu().numpy()
+            label_ids = label_ids.to('cpu').numpy()
+            tmp_eval_accuracy, pred = accuracy(logits, label_ids)
+            for a, b in zip(pred, label_ids):
+                fgold.write("{}\n".format(b))
+                fpred.write("{}\n".format(a))
+
+            eval_loss += tmp_eval_loss.mean().item()
+            eval_accuracy += tmp_eval_accuracy
+
+            nb_eval_examples += input_ids.size(0)
+            nb_eval_steps += 1
+
+        eval_loss = eval_loss / nb_eval_steps
+        eval_accuracy = eval_accuracy / nb_eval_examples
+
+        result = {'eval_loss': eval_loss,
+                  'eval_accuracy': eval_accuracy   
+                  }
+
+        with open(output_eval_file, "w") as writer:
+            logger.info("***** Eval results *****")
+            for key in sorted(result.keys()):
+                logger.info("  %s = %s", key, str(result[key]))
+                writer.write("%s = %s\n" % (key, str(result[key])))
 
 if __name__ == "__main__":
     main()
