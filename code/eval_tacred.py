@@ -464,24 +464,24 @@ def main():
     num_train_steps = None
     train_examples, label_list = processor.get_train_examples(args.data_dir)
     label_list = sorted(label_list)
-    vecs = []
-    vecs.append([0]*100)
-    with open("kg_embed/entity2vec.vec", 'r') as fin:
-        for line in fin:
-            vec = line.strip().split('\t')
-            vec = [float(x) for x in vec]
-            if len(vec) != 100:
-                diff = 100 - len(vec)
-                vec = vec + [0 for _ in range(diff)]
-            vecs.append(vec)
-    embed = torch.tensor(vecs, dtype=torch.float)
-    embed = torch.nn.Embedding.from_pretrained(embed)
+    #  vecs = []
+    #  vecs.append([0]*100)
+    #  with open("kg_embed/entity2vec.vec", 'r') as fin:
+        #  for line in fin:
+            #  vec = line.strip().split('\t')
+            #  vec = [float(x) for x in vec]
+            #  if len(vec) != 100:
+                #  diff = 100 - len(vec)
+                #  vec = vec + [0 for _ in range(diff)]
+            #  vecs.append(vec)
+    #  embed = torch.tensor(vecs, dtype=torch.float)
+    #  embed = torch.nn.Embedding.from_pretrained(embed)
 
-    logger.info("Shape of entity embedding: "+str(embed.weight.size()))
-    del vecs
+    #  logger.info("Shape of entity embedding: "+str(embed.weight.size()))
+    #  del vecs
 
     filenames = os.listdir(args.output_dir)
-    filenames = [x for x in filenames if "pytorch_model.bin_" in x]
+    filenames = [x for x in filenames if "pytorch_model.bin" in x]
 
     file_mark = []
     for x in filenames:
@@ -548,7 +548,7 @@ def main():
         nb_eval_steps, nb_eval_examples = 0, 0
         pred_all, label_all = [], []
         for input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids in eval_dataloader:
-            input_ent = embed(input_ent+1)  # -1 -> 0
+            #  input_ent = embed(input_ent+1)  # -1 -> 0
             input_ids = input_ids.to(device)
             input_mask = input_mask.to(device)
             segment_ids = segment_ids.to(device)

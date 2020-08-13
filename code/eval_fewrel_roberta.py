@@ -402,7 +402,7 @@ def main():
     del vecs
 
     filenames = os.listdir(args.output_dir)
-    filenames = [x for x in filenames if "pytorch_model.bin_" in x]
+    filenames = [x for x in filenames if "pytorch_model.bin" in x]
 
     file_mark = []
     for x in filenames:
