@@ -525,9 +525,9 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
-            output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-            os.system(f"mkdir -p {output_model_dir}")
-            model.save_pretrained(output_model_dir)
+            #  output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
+            #  os.system(f"mkdir -p {output_model_dir}")
+            #  model.save_pretrained(output_model_dir)
 
         # Save a trained model
         output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
