@@ -476,19 +476,19 @@ def main():
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer, args.threshold)
 
-        vecs = []
-        vecs.append([0]*100)
-        with open("kg_embed/entity2vec.vec", 'r') as fin:
-            for line in fin:
-                vec = line.strip().split('\t')
-                vec = [float(x) for x in vec]
-                vecs.append(vec)
-        embed = torch.FloatTensor(vecs)
-        embed = torch.nn.Embedding.from_pretrained(embed)
-        #embed = torch.nn.Embedding(5041175, 100)
+        #  vecs = []
+        #  vecs.append([0]*100)
+        #  with open("kg_embed/entity2vec.vec", 'r') as fin:
+            #  for line in fin:
+                #  vec = line.strip().split('\t')
+                #  vec = [float(x) for x in vec]
+                #  vecs.append(vec)
+        #  embed = torch.FloatTensor(vecs)
+        #  embed = torch.nn.Embedding.from_pretrained(embed)
+        #  embed = torch.nn.Embedding(5041175, 100)
 
-        logger.info("Shape of entity embedding: "+str(embed.weight.size()))
-        del vecs
+        #  logger.info("Shape of entity embedding: "+str(embed.weight.size()))
+        #  del vecs
 
 
         logger.info("***** Running training *****")
@@ -517,7 +517,7 @@ def main():
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
-                input_ent = embed(input_ent+1).to(device) # -1 -> 0
+                #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
                 loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
                 if n_gpu > 1:
