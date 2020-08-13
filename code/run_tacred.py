@@ -507,10 +507,10 @@ def main():
                 #  vec = [float(x) for x in vec]
                 #  vecs.append(vec)
         #  embed = torch.FloatTensor(vecs)
-        embed = torch.nn.Embedding.from_pretrained(embed)
+        #  embed = torch.nn.Embedding.from_pretrained(embed)
         #embed = torch.nn.Embedding(5041175, 100)
 
-        logger.info("Shape of entity embedding: "+str(embed.weight.size()))
+        #  logger.info("Shape of entity embedding: "+str(embed.weight.size()))
         del vecs
 
         # zeros = [0 for _ in range(args.max_seq_length)]
