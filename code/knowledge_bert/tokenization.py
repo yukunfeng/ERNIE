@@ -223,8 +223,12 @@ class RobertaTokenizerEnt(object):
         text = text.replace('^', ' ') # Do not hurt on positions.
         for ent in ents:
           ent_start = ent[1]
-          text = text[:ent_start] + ent_symbol + ' ' + text[ent_start:] 
+          #  text = text[:ent_start] + ent_symbol + ' ' + text[ent_start:] 
+          # Some positions have error on boundries. To make sure space:
+          text = text[:ent_start] + ' ' + ent_symbol + ' ' + text[ent_start:] 
 
+        # Removing multiple spaces as this matters in RobertaTokenizer.
+        text = ' '.join(text.split())
         tmp_input_ids = self.roberta_tokenizer(text)['input_ids']
 
         # Remove symbol and align ent to input_ids

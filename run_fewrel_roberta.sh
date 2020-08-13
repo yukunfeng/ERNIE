@@ -12,14 +12,13 @@ model="roberta-base"
 
 data="data/fewrel"
 
-output="${model}_$(basename $data)_with_dev_output_debug"
+output="${model}_$(basename $data)_output"
+# output="${model}_$(basename $data)_with_dev_output_debug"
 rm -rf $output
 
 
-# only 2 epochs
-python3 code/run_fewrel_roberta.py   --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 2   --output_dir $output      --loss_scale 128
-# python3 code/run_fewrel_roberta.py   --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
+python3 code/run_fewrel_roberta.py   --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
 # evaluate
-# python3 code/eval_fewrel.py   --do_eval   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
+python3 code/eval_fewrel_roberta.py   --do_eval   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
 
-# python ~/env_config/sending_emails.py -c "$0 succ: $? $model finished;"
+python ~/env_config/sending_emails.py -c "$0 succ: $? $model finished;"

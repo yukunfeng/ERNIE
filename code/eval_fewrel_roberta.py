@@ -472,8 +472,11 @@ def main():
             label_ids = label_ids.to(device)
 
             with torch.no_grad():
-                tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
-                logits = model(input_ids, segment_ids, input_mask, input_ent, ent_mask)
+                out = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask, labels=label_ids)
+                #  tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
+                tmp_eval_loss = out.loss
+                logits = out.logits
+                #  logits = model(input_ids, segment_ids, input_mask, input_ent, ent_mask)
 
             logits = logits.detach().cpu().numpy()
             label_ids = label_ids.to('cpu').numpy()
