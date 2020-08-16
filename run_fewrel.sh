@@ -2,9 +2,9 @@ set -x
 
 # model="ernie_base"
 # model="bert_base_under_ernie"
-# model="bert_base"
+model="bert_base"
 # model="bert_wwm_base"
-model="bert-large-wwm"
+# model="bert-large-wwm"
 # model="bert_standard"
 # model="bert_descrip_same_time"
 # model="bert_descrip_same_time_under_ernie"
@@ -14,7 +14,8 @@ model="bert-large-wwm"
 
 data="data/fewrel"
 
-output="${model}_$(basename $data)_output"
+# output="${model}_$(basename $data)_output"
+output="${model}_$(basename $data)_output_debug"
 rm -rf $output
 
 

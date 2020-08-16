@@ -14,7 +14,7 @@ set -x
 # data="data/tacred_linked"
 data="data/tacred"
 
-array=("bert-large-wwm" "bert_base")
+array=("bert_base")
 for model in "${array[@]}"
 do
     output="${model}_$(basename $data)_output"
