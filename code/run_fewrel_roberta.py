@@ -492,7 +492,7 @@ def main():
         output_loss_file = os.path.join(args.output_dir, "loss")
         loss_fout = open(output_loss_file, 'w')
         model.train()
-        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+        for epoch in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
@@ -525,14 +525,15 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
-            #  output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-            #  os.system(f"mkdir -p {output_model_dir}")
-            #  model.save_pretrained(output_model_dir)
+            if epoch >= 10:
+              output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(epoch))
+              os.system(f"mkdir -p {output_model_dir}")
+              model.save_pretrained(output_model_dir)
 
         # Save a trained model
-        output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
-        os.system(f"mkdir -p {output_model_dir}")
-        model.save_pretrained(output_model_dir)
+        #  output_model_dir = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
+        #  os.system(f"mkdir -p {output_model_dir}")
+        #  model.save_pretrained(output_model_dir)
 
 if __name__ == "__main__":
     main()
