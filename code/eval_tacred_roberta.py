@@ -180,7 +180,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length, tokenizer
             input_ids = input_ids[:max_seq_length - 1]
             input_ids.append(2)   # Add sep_id manually for roberta tokenizer.
             ents = ents[:max_seq_length]
-        segment_ids = [0] * len(tokens)
+        segment_ids = [0] * len(input_ids)
 
         input_ent = []
         ent_mask = []
@@ -457,10 +457,10 @@ def main():
 
     for x, mark in file_mark:
         print(x, mark)
-        output_model_file = os.path.join(args.output_dir, x)
-        model_state_dict = torch.load(output_model_file)
-        model, _ = BertForSequenceClassification.from_pretrained(
-            args.ernie_model, state_dict=model_state_dict, num_labels=len(label_list))
+        output_model_dir = os.path.join(args.output_dir, x)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            output_model_dir
+        )
         model.to(device)
 
         if mark:

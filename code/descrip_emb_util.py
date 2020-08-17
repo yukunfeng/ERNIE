@@ -120,6 +120,8 @@ def prepare_desrip_ebm(qid2descrip, args):
   idx = 0
   features = []
   for qid, descrip in qid2descrip.items():
+    import ipdb
+    ipdb.set_trace()
     tokens = tokenizer.tokenize_no_ent(descrip)
     # Account for [CLS] and [SEP] with "- 2"
     if len(tokens) > args.max_seq_length - 2:
@@ -143,7 +145,7 @@ def prepare_desrip_ebm(qid2descrip, args):
       print(f"segment_ids: {segment_ids}")
       print(f"input_mask: {input_mask}")
       idx += 1
-    f = Feature(input_ids, input_mask, segments_ids, qid):
+    f = Feature(input_ids, input_mask, segment_ids, qid)
     features.append(f)
 
   all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
