@@ -19,12 +19,14 @@ output="${model}_$(basename $data)_output"
 lrs=(6e-5 7e-5 8e-5 9e-6)
 for lr in "${lrs[@]}"
 do
-    # rm -rf $output
-    # python3 code/run_fewrel_roberta.py   --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate $lr  --num_train_epochs 10   --output_dir $output      --loss_scale 128
+    rm -rf $output
+    # epoch changed
+    python3 code/run_fewrel_roberta.py   --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate $lr  --num_train_epochs 13   --output_dir $output      --loss_scale 128
 
-    # python3 code/eval_fewrel_roberta.py   --do_eval   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
+    python3 code/eval_fewrel_roberta.py   --do_eval   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
 
-    python code/score_batch_fewrel.py $output
+    python code/score_batch_fewrel.py $output &>> $output.log
+    echo "$lr result above" &>> $output.log
 
 done
 
