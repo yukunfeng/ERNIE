@@ -146,6 +146,13 @@ class BertTokenizer(object):
                     split_ents.append("UNK")
         return split_tokens, split_ents
 
+    def tokenize_no_ent(self, text):
+        split_tokens = []
+        for token, ent in self.basic_tokenizer.tokenize(text, ents):
+            for sub_token in self.wordpiece_tokenizer.tokenize(token):
+                split_tokens.append(sub_token)
+        return split_tokens
+
     def convert_tokens_to_ids(self, tokens):
         """Converts a sequence of tokens into ids using the vocab."""
         ids = []
