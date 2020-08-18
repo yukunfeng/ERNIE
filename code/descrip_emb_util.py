@@ -197,14 +197,12 @@ def prepare_desrip_ebm(qid2descrip, args):
 
 def load_descrip(emb_base, entties_tsv_path):
   ret = load_wikidata(entties_tsv_path)
-  _, _, entity_id2parents = ret
+  _, entity_id2label, entity_id2parents = ret
   with open(f"{emb_base}.pickle", 'rb') as f:
         qid2idx = pickle.load(f)
   descrip_embs = torch.load(f"{emb_base}.pt")
 
-  import ipdb
-  ipdb.set_trace()
-  return entity_id2parents, qid2idx, descrip_embs
+  return entity_id2label, entity_id2parents, qid2idx, descrip_embs
 
 
 
