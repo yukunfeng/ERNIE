@@ -773,7 +773,7 @@ class BertModel(PreTrainedBertModel):
 
 class BertForFeatureEmbs(PreTrainedBertModel):
     def __init__(self, config):
-        super(BertModel, self).__init__(config)
+        super(BertForFeatureEmbs, self).__init__(config)
         self.embeddings = BertEmbeddings(config)
         self.encoder = BertEncoder(config)
         self.apply(self.init_bert_weights)
@@ -790,7 +790,6 @@ class BertForFeatureEmbs(PreTrainedBertModel):
         # this attention mask is more simple than the triangular masking of causal attention
         # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
         extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
-        extended_ent_mask = ent_mask.unsqueeze(1).unsqueeze(2)
 
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
         # masked positions, this operation will create a tensor which is 0.0 for
@@ -799,15 +798,13 @@ class BertForFeatureEmbs(PreTrainedBertModel):
         # effectively the same as removing these entirely.
         extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
-        extended_ent_mask = extended_ent_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
-        extended_ent_mask = (1.0 - extended_ent_mask) * -10000.0
 
         embedding_output = self.embeddings(input_ids, token_type_ids)
         encoded_layers = self.encoder(embedding_output,
                                       extended_attention_mask,
                                       input_ent,
-                                      extended_ent_mask,
-                                      ent_mask,
+                                      [],
+                                      [],
                                       output_all_encoded_layers=output_all_encoded_layers)
         return embedding_output, encoded_layers
 

@@ -6,6 +6,8 @@ import torch
 import pickle
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from knowledge_bert.tokenization import BertTokenizer
+from knowledge_bert.modeling import BertForFeatureEmbs
+from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 
 def load_wikidata(prep_input_path: str):
   """Parses the preprocessed wikdata file into Python dicts.
@@ -123,8 +125,6 @@ def prepare_desrip_ebm(qid2descrip, args):
   idx = 0
   features = []
   for qid, descrip in qid2descrip.items():
-    import ipdb
-    ipdb.set_trace()
     tokens = tokenizer.tokenize_no_ent(descrip)
     # Account for [CLS] and [SEP] with "- 2"
     if len(tokens) > args.max_seq_length - 2:
@@ -157,7 +157,7 @@ def prepare_desrip_ebm(qid2descrip, args):
   #  all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
   all_label_ids = [f.label_id for f in features]
   eval_data = TensorDataset(all_input_ids, all_input_mask,
-                            all_segment_ids, all_label_ids)
+                            all_segment_ids)
 
   # Run prediction for full data
   eval_sampler = SequentialSampler(eval_data)
@@ -165,19 +165,21 @@ def prepare_desrip_ebm(qid2descrip, args):
       eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
   model, _ = BertForFeatureEmbs.from_pretrained(args.ernie_model,
-            cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
-            num_labels = 2)
+            cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(-1))
+  device = torch.device("cuda")
   model.to(device)
 
   descrip_outs = []
-  all_label_ids = []
-  for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
+  #  all_label_ids = []
+  for input_ids, input_mask, segment_ids in eval_dataloader:
     input_ids = input_ids.to(device)
     input_mask = input_mask.to(device)
     segment_ids = segment_ids.to(device)
-    all_label_ids.extend(label_ids)
+    #  all_label_ids.extend(label_ids)
     with torch.no_grad():
-        embedding_output, encoded_layers = model(input_ids=input_ids, token_type_id=segment_ids, attention_mask=input_mask)
+        import ipdb
+        ipdb.set_trace()
+        embedding_output, encoded_layers = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask)
         if args.bert_layer != -2:
           #  Only get first token embedding to represent whole description
           descrip_out = encoded_layers[args.bert_layer][:, 0]
@@ -203,8 +205,7 @@ if __name__ == "__main__":
                       help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
   parser.add_argument("--output_base",
                       default="descrip",
-                      type=str,
-                      required=True,
+                      type=str)
   parser.add_argument("--eval_batch_size",
                       default=100,
                       type=int,
@@ -212,7 +213,7 @@ if __name__ == "__main__":
   parser.add_argument("--bert_layer",
                       default=-1,
                       type=int,
-                      help="which layer to use, from 0 to -1, -2 means only use word embeddings")
+                      help="which layer to use. from 0 to -1, -2 word embeddings")
   parser.add_argument("--ernie_model", default=None, type=str, required=True,
                       help="Ernie pre-trained model")
   parser.add_argument("--entities_tsv", default=None, type=str, required=True,
