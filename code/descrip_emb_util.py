@@ -2,6 +2,9 @@ import json
 import os
 import argparse
 
+import torch
+import pickle
+from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
 from knowledge_bert.tokenization import BertTokenizer
 
 def load_wikidata(prep_input_path: str):
@@ -151,7 +154,43 @@ def prepare_desrip_ebm(qid2descrip, args):
   all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
   all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
   all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
-  all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
+  #  all_label_ids = torch.tensor([f.label_id for f in features], dtype=torch.long)
+  all_label_ids = [f.label_id for f in features]
+  eval_data = TensorDataset(all_input_ids, all_input_mask,
+                            all_segment_ids, all_label_ids)
+
+  # Run prediction for full data
+  eval_sampler = SequentialSampler(eval_data)
+  eval_dataloader = DataLoader(
+      eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
+
+  model, _ = BertForFeatureEmbs.from_pretrained(args.ernie_model,
+            cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
+            num_labels = 2)
+  model.to(device)
+
+  descrip_outs = []
+  all_label_ids = []
+  for input_ids, input_mask, segment_ids, label_ids in eval_dataloader:
+    input_ids = input_ids.to(device)
+    input_mask = input_mask.to(device)
+    segment_ids = segment_ids.to(device)
+    all_label_ids.extend(label_ids)
+    with torch.no_grad():
+        embedding_output, encoded_layers = model(input_ids=input_ids, token_type_id=segment_ids, attention_mask=input_mask)
+        if args.bert_layer != -2:
+          #  Only get first token embedding to represent whole description
+          descrip_out = encoded_layers[args.bert_layer][:, 0]
+          tensors.append(descrip_out)
+  descrip_outs = torch.cat(descrip_outs, dim=0)
+  if descrip_out.shape[0] != len(all_label_ids):
+    raise Exception("descrip_out shape not equal to label ids")
+  qid2idx = {}
+  for i, qid in enumerate(all_label_ids, 0):
+    qid2idx[qid] = i
+  torch.save(descrip_outs, f"{args.output_base}.pt")
+  with open(f"{args.output_base}.pickle") as f:
+    pickle.dump(qid2idx, f)
 
 
 if __name__ == "__main__":
@@ -162,6 +201,18 @@ if __name__ == "__main__":
                       type=str,
                       required=True,
                       help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
+  parser.add_argument("--output_base",
+                      default="descrip",
+                      type=str,
+                      required=True,
+  parser.add_argument("--eval_batch_size",
+                      default=100,
+                      type=int,
+                      help="Total batch size for eval.")
+  parser.add_argument("--bert_layer",
+                      default=-1,
+                      type=int,
+                      help="which layer to use, from 0 to -1, -2 means only use word embeddings")
   parser.add_argument("--ernie_model", default=None, type=str, required=True,
                       help="Ernie pre-trained model")
   parser.add_argument("--entities_tsv", default=None, type=str, required=True,
