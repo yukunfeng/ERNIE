@@ -803,8 +803,8 @@ class BertForFeatureEmbs(PreTrainedBertModel):
         encoded_layers = self.encoder(embedding_output,
                                       extended_attention_mask,
                                       input_ent,
-                                      [],
-                                      [],
+                                      torch.tensor([1]),
+                                      torch.tensor([1]),
                                       output_all_encoded_layers=output_all_encoded_layers)
         return embedding_output, encoded_layers
 

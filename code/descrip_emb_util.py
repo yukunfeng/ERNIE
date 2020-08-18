@@ -177,21 +177,19 @@ def prepare_desrip_ebm(qid2descrip, args):
     segment_ids = segment_ids.to(device)
     #  all_label_ids.extend(label_ids)
     with torch.no_grad():
-        import ipdb
-        ipdb.set_trace()
         embedding_output, encoded_layers = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask)
         if args.bert_layer != -2:
           #  Only get first token embedding to represent whole description
           descrip_out = encoded_layers[args.bert_layer][:, 0]
-          tensors.append(descrip_out)
+          descrip_outs.append(descrip_out)
   descrip_outs = torch.cat(descrip_outs, dim=0)
-  if descrip_out.shape[0] != len(all_label_ids):
+  if descrip_outs.shape[0] != len(all_label_ids):
     raise Exception("descrip_out shape not equal to label ids")
   qid2idx = {}
   for i, qid in enumerate(all_label_ids, 0):
     qid2idx[qid] = i
   torch.save(descrip_outs, f"{args.output_base}.pt")
-  with open(f"{args.output_base}.pickle") as f:
+  with open(f"{args.output_base}.pickle", "w") as f:
     pickle.dump(qid2idx, f)
 
 
