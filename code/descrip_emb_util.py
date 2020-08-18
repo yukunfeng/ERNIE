@@ -191,7 +191,7 @@ def prepare_desrip_ebm(qid2descrip, args):
   os.system(f"rm -rf {args.output_base}.pt")
   torch.save(descrip_outs, f"{args.output_base}.pt")
   os.system(f"rm -rf {args.output_base}.pickle")
-  with open(f"{args.output_base}.pickle", "w") as f:
+  with open(f"{args.output_base}.pickle", "wb") as f:
     pickle.dump(qid2idx, f)
 
 
