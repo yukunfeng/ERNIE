@@ -188,9 +188,24 @@ def prepare_desrip_ebm(qid2descrip, args):
   qid2idx = {}
   for i, qid in enumerate(all_label_ids, 0):
     qid2idx[qid] = i
+  os.system(f"rm -rf {args.output_base}.pt")
   torch.save(descrip_outs, f"{args.output_base}.pt")
+  os.system(f"rm -rf {args.output_base}.pickle")
   with open(f"{args.output_base}.pickle", "w") as f:
     pickle.dump(qid2idx, f)
+
+
+def load_descrip(emb_base, entties_tsv_path):
+  ret = load_wikidata(entties_tsv_path)
+  _, _, entity_id2parents = ret
+  with open(f"{emb_base}.pickle", 'rb') as f:
+        qid2idx = pickle.load(f)
+  descrip_embs = torch.load(f"{emb_base}.pt")
+
+  import ipdb
+  ipdb.set_trace()
+  return entity_id2parents, qid2idx, descrip_embs
+
 
 
 if __name__ == "__main__":
@@ -233,3 +248,5 @@ if __name__ == "__main__":
 
   qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
   prepare_desrip_ebm(qid2descrip, args)
+
+  load_descrip(args.output_base, args.entities_tsv)
