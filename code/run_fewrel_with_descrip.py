@@ -168,9 +168,9 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
             t[1] += 2
             t[2] += 2
         tokens_a, entities_a = tokenizer.tokenize_with_descrip(ex_text_a, [h, t], entity_id2parents, entity_id2label, max_parent)
-        if len([x for x in entities_a if x!=["UNK"]*max_parent]) != 2:
-            print(f"QID do not have two for fewrel")
-            exit(1)
+        #  if len([x for x in entities_a if x!=["UNK"]*max_parent]) != 2:
+            #  print(f"QID do not have two for fewrel")
+            #  exit(1)
 
         tokens_b = None
         if example.text_b:
@@ -424,7 +424,7 @@ def main():
     # Prepare model
     model, _ = BertForSequenceClassificationDescrip.from_pretrained(args.ernie_model,
               cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
-              num_labels = num_labels)
+              num_labels = num_labels, descrip_embs=descrip_embs)
     if args.fp16:
         model.half()
     model.to(device)
@@ -517,7 +517,7 @@ def main():
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
-                batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
+                batch = tuple(t.to(device) for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
                 #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
                 loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)

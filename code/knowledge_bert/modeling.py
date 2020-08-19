@@ -779,7 +779,7 @@ class BertModelDescrip(PreTrainedBertModel):
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, output_all_encoded_layers=True):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None, ent_emb=None, ent_mask=None, output_all_encoded_layers=True):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
         if token_type_ids is None:
@@ -791,7 +791,7 @@ class BertModelDescrip(PreTrainedBertModel):
         # this attention mask is more simple than the triangular masking of causal attention
         # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
         extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
-        extended_ent_mask = ent_mask.unsqueeze(1).unsqueeze(2)
+        #  extended_ent_mask = ent_mask.unsqueeze(1).unsqueeze(2)
 
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
         # masked positions, this operation will create a tensor which is 0.0 for
@@ -800,14 +800,17 @@ class BertModelDescrip(PreTrainedBertModel):
         # effectively the same as removing these entirely.
         extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
         extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
-        extended_ent_mask = extended_ent_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
-        extended_ent_mask = (1.0 - extended_ent_mask) * -10000.0
+        #  extended_ent_mask = extended_ent_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
+        #  extended_ent_mask = (1.0 - extended_ent_mask) * -10000.0
 
         embedding_output = self.embeddings(input_ids, token_type_ids)
+
+        # Combine word embedding and descrip embs.
+        embedding_output = embedding_output + ent_emb
         encoded_layers = self.encoder(embedding_output,
                                       extended_attention_mask,
-                                      input_ent,
-                                      extended_ent_mask,
+                                      ent_emb,
+                                      ent_mask,
                                       ent_mask,
                                       output_all_encoded_layers=output_all_encoded_layers)
         sequence_output = encoded_layers[-1]
@@ -1171,16 +1174,40 @@ class BertForSequenceClassification(PreTrainedBertModel):
 
 
 class BertForSequenceClassificationDescrip(PreTrainedBertModel):
-    def __init__(self, config, num_labels=2):
+    def __init__(self, config, num_labels=2, descrip_embs=None):
         super(BertForSequenceClassificationDescrip, self).__init__(config)
         self.num_labels = num_labels
+        self.descrip_embs = descrip_embs
+        self.descrip_embs = nn.Embedding(descrip_embs.shape[0], descrip_embs.shape[1])
+        self.descrip_embs.weight.data.copy_(descrip_embs)
         self.bert = BertModelDescrip(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
 
     def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, labels=None):
-        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, input_ent, ent_mask, output_all_encoded_layers=False)
+        # Shape: batch, max_seq, max_parent, dim
+        ent_emb = self.descrip_embs(input_ent)
+        # Apply masks. shape: same
+        ent_emb = ent_mask.type(ent_emb.dtype).unsqueeze(dim=3).expand_as(ent_emb) * ent_emb
+        # Sum over max_parent. shape: batch, max_seq, dim
+        ent_emb = ent_emb.sum(dim=2)
+
+        # Prepare valid denominator for averaging.
+         
+        # Sum over max_parent. Shape batch, max_seq max_parent -> batch max_seq 
+        reduced_ent_mask = ent_mask.sum(dim=2)
+        # 0 count must be avoided.
+        zero_div_protected_mask = (reduced_ent_mask == 0).type(reduced_ent_mask.dtype)
+        zero_div_protected_mask = reduced_ent_mask + zero_div_protected_mask
+        # Shape batch, max_seq -> batch max_seq dim
+        zero_div_protected_mask = zero_div_protected_mask.unsqueeze(dim=2).expand_as(ent_emb)
+        # Averaging
+        ent_emb = ent_emb / zero_div_protected_mask.type(ent_emb.dtype)
+        import ipdb
+        ipdb.set_trace()
+
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
