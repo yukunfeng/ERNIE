@@ -1204,8 +1204,6 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
         zero_div_protected_mask = zero_div_protected_mask.unsqueeze(dim=2).expand_as(ent_emb)
         # Averaging
         ent_emb = ent_emb / zero_div_protected_mask.type(ent_emb.dtype)
-        import ipdb
-        ipdb.set_trace()
 
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
         pooled_output = self.dropout(pooled_output)

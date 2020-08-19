@@ -155,6 +155,8 @@ class BertTokenizer(object):
                 split_tokens.append(sub_token)
                 if ent in entity_id2parents and mark:
                     parents = list(entity_id2parents[ent])
+                    # Sort by descrip length.
+                    parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
                     parents = parents[0:max_parent]
                     left_num = max_parent - len(parents)
                     if left_num > 0:
