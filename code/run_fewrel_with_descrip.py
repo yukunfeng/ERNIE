@@ -131,18 +131,19 @@ class FewrelProcessor(DataProcessor):
 
 
 def convert_examples_to_features(examples, label_list, max_seq_length,
-    tokenizer, threshold, entity_id2parents, entity_id2label, max_parent):
+    tokenizer, threshold, entity_id2parents, entity_id2label, max_parent,
+    qid2idx):
     """Loads a data file into a list of `InputBatch`s."""
     
     label_list = sorted(label_list)
     label_map = {label : i for i, label in enumerate(label_list)}
 
-    entity2id = {}
-    with open("kg_embed/entity2id.txt") as fin:
-        fin.readline()
-        for line in fin:
-            qid, eid = line.strip().split('\t')
-            entity2id[qid] = int(eid)
+    #  entity2id = {}
+    #  with open("kg_embed/entity2id.txt") as fin:
+        #  fin.readline()
+        #  for line in fin:
+            #  qid, eid = line.strip().split('\t')
+            #  entity2id[qid] = int(eid)
 
     features = []
     for (ex_index, example) in enumerate(examples):
@@ -166,7 +167,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
             h[2] += 6
             t[1] += 2
             t[2] += 2
-        tokens_a, entities_a = tokenizer.tokenize_with_descrip(ex_text_a, [h, t], entity_id2parents, entity_id2label, max_parent):
+        tokens_a, entities_a = tokenizer.tokenize_with_descrip(ex_text_a, [h, t], entity_id2parents, entity_id2label, max_parent)
         if len([x for x in entities_a if x!=["UNK"]*max_parent]) != 2:
             print(f"QID do not have two for fewrel")
             exit(1)
@@ -220,7 +221,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         input_mask += padding
         segment_ids += padding
 
-        padding = [[0]*max_parent] * (max_seq_length - len(input_ids))
+        padding = [[0]*max_parent] * (max_seq_length - len(input_ent))
         ent_mask += padding
         input_ent += padding
 
@@ -371,7 +372,7 @@ def main():
 
     args = parser.parse_args()
 
-    entity_id2label, entity_id2parents, qid2idx, descrip_embs = load_descrip(args.output_base, args.entities_tsv)
+    entity_id2label, entity_id2parents, qid2idx, descrip_embs = load_descrip(args.emb_base, args.entities_tsv)
     processors = FewrelProcessor
 
     num_labels_task = 80
@@ -474,7 +475,8 @@ def main():
     if args.do_train:
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer,
-            args.threshold, entity_id2parents, entity_id2label, args.max_parent)
+            args.threshold, entity_id2parents, entity_id2label,
+            args.max_parent, qid2idx)
 
         #  vecs = []
         #  vecs.append([0]*100)

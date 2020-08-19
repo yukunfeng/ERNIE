@@ -154,7 +154,7 @@ class BertTokenizer(object):
             for sub_token in self.wordpiece_tokenizer.tokenize(token):
                 split_tokens.append(sub_token)
                 if ent in entity_id2parents and mark:
-                    parents = entity_id2parents[ent]
+                    parents = list(entity_id2parents[ent])
                     parents = parents[0:max_parent]
                     left_num = max_parent - len(parents)
                     if left_num > 0:
