@@ -32,7 +32,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 from torch.utils.data.distributed import DistributedSampler
 
 from knowledge_bert.tokenization import BertTokenizer
-from knowledge_bert.modeling import BertForSequenceClassification
+from knowledge_bert.modeling import BertForSequenceClassificationDescrip
 from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from descrip_emb_util import load_descrip
@@ -422,7 +422,7 @@ def main():
         len(train_examples) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
 
     # Prepare model
-    model, _ = BertForSequenceClassification.from_pretrained(args.ernie_model,
+    model, _ = BertForSequenceClassificationDescrip.from_pretrained(args.ernie_model,
               cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
               num_labels = num_labels)
     if args.fp16:
