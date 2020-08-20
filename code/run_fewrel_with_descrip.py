@@ -26,6 +26,9 @@ import random
 from tqdm import tqdm, trange
 import simplejson as json
 
+#  from sklearn.metrics import f1_score
+from sklearn.metrics import precision_recall_fscore_support as f1_score
+
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
@@ -111,6 +114,12 @@ class FewrelProcessor(DataProcessor):
         return self._create_examples(
             self._read_json(os.path.join(data_dir, "dev.json")), "dev")
 
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        return self._create_examples(
+            self._read_json(os.path.join(data_dir, "test.json")), "dev")
+
+
     def get_labels(self):
         """Useless"""
         return ["0", "1"]
@@ -132,7 +141,7 @@ class FewrelProcessor(DataProcessor):
 
 def convert_examples_to_features(examples, label_list, max_seq_length,
     tokenizer, threshold, entity_id2parents, entity_id2label, max_parent,
-    qid2idx):
+    qid2idx, verbose=5):
     """Loads a data file into a list of `InputBatch`s."""
     
     label_list = sorted(label_list)
@@ -232,7 +241,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         assert len(ent_mask) == max_seq_length
 
         label_id = label_map[example.label]
-        if ex_index < 5:
+        if ex_index <  verbose:
             logger.info("*** Example ***")
             logger.info("guid: %s" % (example.guid))
             logger.info("tokens: %s" % " ".join(
@@ -275,7 +284,7 @@ def _truncate_seq_pair(tokens_a, tokens_b, ents_a, ents_b, max_length):
 
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
-    return np.sum(outputs == labels)
+    return np.sum(outputs == labels), outputs
 
 def warmup_linear(x, warmup=0.002):
     if x < warmup:
@@ -330,6 +339,10 @@ def main():
                         default=32,
                         type=int,
                         help="Total batch size for training.")
+    parser.add_argument("--eval_batch_size",
+                        default=8,
+                        type=int,
+                        help="Total batch size for eval.")
     parser.add_argument("--learning_rate",
                         default=5e-5,
                         type=float,
@@ -472,6 +485,85 @@ def main():
                              warmup=args.warmup_proportion,
                              t_total=t_total)
     global_step = 0
+    
+
+    def do_eval(mode="test"):
+      dev_examples = processor.get_dev_examples(args.data_dir)
+      dev = convert_examples_to_features(
+          dev_examples, label_list, args.max_seq_length, tokenizer,
+          args.threshold, entity_id2parents, entity_id2label,
+          args.max_parent, qid2idx, 1)
+
+      test_examples = processor.get_test_examples(args.data_dir)
+      test = convert_examples_to_features(
+          test_examples, label_list, args.max_seq_length, tokenizer,
+          args.threshold, entity_id2parents, entity_id2label,
+          args.max_parent, qid2idx, 1)
+
+      if mode == "dev":
+          eval_features = dev
+          eval_examples = dev_examples
+      else:
+          eval_features = test
+          eval_examples = test_examples
+
+      logger.info(f"***** Running evaluation on {mode} *****")
+      logger.info("  Num examples = %d", len(eval_examples))
+      logger.info("  Batch size = %d", args.eval_batch_size)
+
+      all_input_ids = torch.tensor([f.input_ids for f in eval_features], dtype=torch.long)
+      all_input_mask = torch.tensor([f.input_mask for f in eval_features], dtype=torch.long)
+      all_segment_ids = torch.tensor([f.segment_ids for f in eval_features], dtype=torch.long)
+      all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
+      all_ent = torch.tensor([f.input_ent for f in eval_features], dtype=torch.long)
+      all_ent_masks = torch.tensor([f.ent_mask for f in eval_features], dtype=torch.long)
+      eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_ent, all_ent_masks, all_label_ids)
+      # Run prediction for full data
+      eval_sampler = SequentialSampler(eval_data)
+      eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
+
+      model.eval()
+      eval_loss, eval_accuracy = 0, 0
+      nb_eval_steps, nb_eval_examples = 0, 0
+      eval_label_ids = []
+      eval_preds = []
+      for input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids in eval_dataloader:
+        input_ids = input_ids.to(device)
+        input_mask = input_mask.to(device)
+        segment_ids = segment_ids.to(device)
+        input_ent = input_ent.to(device)
+        ent_mask = ent_mask.to(device)
+        label_ids = label_ids.to(device)
+
+        with torch.no_grad():
+          tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
+          logits = model(input_ids, segment_ids, input_mask, input_ent, ent_mask)
+
+        logits = logits.detach().cpu().numpy()
+        label_ids = label_ids.to('cpu').numpy()
+        tmp_eval_accuracy, pred = accuracy(logits, label_ids)
+        eval_preds.extend(pred.tolist())
+        eval_label_ids.extend(label_ids.tolist())
+
+        eval_loss += tmp_eval_loss.mean().item()
+        eval_accuracy += tmp_eval_accuracy
+
+        nb_eval_examples += input_ids.size(0)
+        nb_eval_steps += 1
+
+      eval_loss = eval_loss / nb_eval_steps
+      eval_accuracy = eval_accuracy / nb_eval_examples
+
+      p, r, f, _ = f1_score(y_true=eval_label_ids, y_pred=eval_preds, average='micro')
+      result = {'eval_loss': eval_loss,
+                'eval_accuracy': eval_accuracy ,
+                'p': p, 'r':r, 'f': f
+                }
+
+      logger.info(f"***** Eval results on {mode} *****")
+      logger.info(f"***** {result} *****")
+
+
     if args.do_train:
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer,
@@ -512,10 +604,10 @@ def main():
 
         output_loss_file = os.path.join(args.output_dir, "loss")
         loss_fout = open(output_loss_file, 'w')
-        model.train()
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
+            model.train()
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) for i, t in enumerate(batch))
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
@@ -548,10 +640,17 @@ def main():
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
             #  torch.save(model_to_save.state_dict(), output_model_file)
 
+            import ipdb
+            ipdb.set_trace()
+            do_eval("test")
+            do_eval("dev")
         # Save a trained model
-        model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
-        output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
-        torch.save(model_to_save.state_dict(), output_model_file)
+        #  model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
+        #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
+        #  torch.save(model_to_save.state_dict(), output_model_file)
+
+
+
 
 if __name__ == "__main__":
     main()

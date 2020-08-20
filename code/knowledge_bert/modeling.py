@@ -1177,7 +1177,6 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
     def __init__(self, config, num_labels=2, descrip_embs=None):
         super(BertForSequenceClassificationDescrip, self).__init__(config)
         self.num_labels = num_labels
-        self.descrip_embs = descrip_embs
         self.descrip_embs = nn.Embedding(descrip_embs.shape[0], descrip_embs.shape[1])
         self.descrip_embs.weight.data.copy_(descrip_embs)
         self.bert = BertModelDescrip(config)
