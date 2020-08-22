@@ -126,10 +126,16 @@ def prepare_desrip_ebm(qid2descrip, args):
   features = []
   for qid, descrip in qid2descrip.items():
     tokens = tokenizer.tokenize_no_ent(descrip)
-    # Account for [CLS] and [SEP] with "- 2"
-    if len(tokens) > args.max_seq_length - 2:
-      tokens = tokens[:(args.max_seq_length - 2)]
-    tokens = ["[CLS]"] + tokens + ["[SEP]"]
+    if args.bert_layer != -2:
+      # Account for [CLS] and [SEP] with "- 2"
+      if len(tokens) > args.max_seq_length - 2:
+        tokens = tokens[:(args.max_seq_length - 2)]
+      tokens = ["[CLS]"] + tokens + ["[SEP]"]
+    else:
+      # Only word embs are used thus no CLS and SEP
+      if len(tokens) > args.max_seq_length:
+        tokens = tokens[:args.max_seq_length]
+
     segment_ids = [0] * len(tokens)
     input_ids = tokenizer.convert_tokens_to_ids(tokens)
     input_mask = [1] * len(input_ids)
@@ -169,6 +175,8 @@ def prepare_desrip_ebm(qid2descrip, args):
   device = torch.device("cuda")
   model.to(device)
 
+  model.eval()
+
   descrip_outs = []
   #  all_label_ids = []
   for input_ids, input_mask, segment_ids in eval_dataloader:
@@ -182,6 +190,8 @@ def prepare_desrip_ebm(qid2descrip, args):
           #  Only get first token embedding to represent whole description
           descrip_out = encoded_layers[args.bert_layer][:, 0]
           descrip_outs.append(descrip_out)
+        else:
+          descrip_outs.append(embedding_output)
   descrip_outs = torch.cat(descrip_outs, dim=0)
   if descrip_outs.shape[0] != len(all_label_ids):
     raise Exception("descrip_out shape not equal to label ids")
