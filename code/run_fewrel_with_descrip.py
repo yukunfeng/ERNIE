@@ -641,10 +641,8 @@ def main():
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
             #  torch.save(model_to_save.state_dict(), output_model_file)
 
-            import ipdb
-            ipdb.set_trace()
-            do_eval("test")
-            do_eval("dev")
+        do_eval("test")
+        do_eval("dev")
         # Save a trained model
         #  model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
         #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
