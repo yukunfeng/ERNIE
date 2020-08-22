@@ -779,7 +779,9 @@ class BertModelDescrip(PreTrainedBertModel):
         self.pooler = BertPooler(config)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, ent_emb=None, ent_mask=None, output_all_encoded_layers=True):
+    #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, ent_emb=None, ent_mask=None, output_all_encoded_layers=True):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None,
+        ent_emb=None, ent_mask=None, output_all_encoded_layers=True, tokenizer=None, qid2idx=None, entity_id2label=None, input_ent=None):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
         if token_type_ids is None:
@@ -806,7 +808,39 @@ class BertModelDescrip(PreTrainedBertModel):
         embedding_output = self.embeddings(input_ids, token_type_ids)
 
         # Combine word embedding and descrip embs.
-        embedding_output = embedding_output + ent_emb
+        #  embedding_output = embedding_output + ent_emb
+
+        # For debugging.
+        non_zero_idxs = []
+        reduced_ent_mask = ent_mask.sum(dim=2)
+        for i, row in enumerate(reduced_ent_mask, 0):
+          for j, v in enumerate(row, 0):
+            if v != 0:
+              non_zero_idxs.append([i, j])
+        # Convert input ids to tokens for debugging.    
+        tokens = []
+        for row in input_ids:
+          tokens_ = []
+          for idx in row:
+            token = tokenizer.ids_to_tokens[idx.item()]
+            tokens_.append(token) 
+          tokens.append(tokens_)
+
+        # ent idx to qid and then to description.
+        entid2qid = {}
+        for qid, ent_id in qid2idx.items():
+          entid2qid[ent_id] = qid
+
+        import ipdb
+        ipdb.set_trace()
+        # qid to description.
+        for i, j in non_zero_idxs:
+          ent_id = input_ent[i, j]
+          ent_emb_distance = (ent_emb[i, j] ** 2).sum()
+          token_emb_distance = (embedding_output[i, j] ** 2).sum()
+          qid = entid2qid[ent_id.item()]
+          descrip = entity_id2label[qid]
+
         encoded_layers = self.encoder(embedding_output,
                                       extended_attention_mask,
                                       ent_emb,
@@ -1184,7 +1218,10 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
 
-    def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, labels=None):
+    #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, labels=None):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None,
+        input_ent=None, ent_mask=None, labels=None, tokenizer=None,
+        qid2idx=None, entity_id2label=None):
         # Shape: batch, max_seq, max_parent, dim
         ent_emb = self.descrip_embs(input_ent)
         # Apply masks. shape: same
@@ -1204,7 +1241,11 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
         # Averaging
         ent_emb = ent_emb / zero_div_protected_mask.type(ent_emb.dtype)
 
-        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
+
+        #  _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
+            ent_emb, ent_mask, output_all_encoded_layers=False,
+            tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, input_ent=input_ent)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
