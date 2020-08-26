@@ -83,7 +83,10 @@ def collect_qids(path_dir, entities_tsv, confidence_thre=0.0):
           sent_count = 0
           linked_ent_count = 0
           for item in data:
-            ents = item['ents']
+            if 'ann' in item:
+              ents = item['ann']
+            else:
+              ents = item['ents']
             sent_count += 1
             for ent in ents:
               qid = ent[0]

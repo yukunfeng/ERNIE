@@ -141,7 +141,7 @@ class FewrelProcessor(DataProcessor):
 
 def convert_examples_to_features(examples, label_list, max_seq_length,
     tokenizer, threshold, entity_id2parents, entity_id2label, max_parent,
-    qid2idx, verbose=5):
+    qid2idx, verbose=2):
     """Loads a data file into a list of `InputBatch`s."""
     
     label_list = sorted(label_list)
@@ -295,6 +295,10 @@ def main():
     parser = argparse.ArgumentParser()
 
     ## Required parameters
+    parser.add_argument("--no_descrip",
+                        default=False,
+                        action='store_true',
+                        help="Whether to run training.")
     parser.add_argument("--emb_base",
                         default="descrip",
                         type=str)
@@ -536,8 +540,10 @@ def main():
         label_ids = label_ids.to(device)
 
         with torch.no_grad():
-          tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
-          logits = model(input_ids, segment_ids, input_mask, input_ent, ent_mask)
+          tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent,
+              ent_mask, label_ids, use_ent_emb=(not args.no_descrip))
+          logits = model(input_ids, segment_ids, input_mask, input_ent,
+              ent_mask, use_ent_emb=(not args.no_descrip))
 
         logits = logits.detach().cpu().numpy()
         label_ids = label_ids.to('cpu').numpy()
@@ -613,7 +619,8 @@ def main():
                 input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
                 #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
-                loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids, tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label)
+                loss = model(input_ids, segment_ids, input_mask, input_ent,
+                    ent_mask, label_ids, tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, use_ent_emb=(not args.no_descrip))
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.

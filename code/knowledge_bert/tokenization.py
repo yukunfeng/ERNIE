@@ -163,7 +163,11 @@ class BertTokenizer(object):
 
                     parents = valid_parents
                     # Sort by descrip length.
-                    parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
+                    #  parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
+                    parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()), reverse=True)
+                    # Random shuffle
+                    #  import random
+                    #  random.shuffle(parents)
                     parents = parents[0:max_parent]
                     left_num = max_parent - len(parents)
                     if left_num > 0:

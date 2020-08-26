@@ -781,7 +781,8 @@ class BertModelDescrip(PreTrainedBertModel):
 
     #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, ent_emb=None, ent_mask=None, output_all_encoded_layers=True):
     def forward(self, input_ids, token_type_ids=None, attention_mask=None,
-        ent_emb=None, ent_mask=None, output_all_encoded_layers=True, tokenizer=None, qid2idx=None, entity_id2label=None, input_ent=None):
+        ent_emb=None, ent_mask=None, output_all_encoded_layers=True,
+        tokenizer=None, qid2idx=None, entity_id2label=None, input_ent=None, use_ent_emb=True):
         if attention_mask is None:
             attention_mask = torch.ones_like(input_ids)
         if token_type_ids is None:
@@ -808,7 +809,10 @@ class BertModelDescrip(PreTrainedBertModel):
         embedding_output = self.embeddings(input_ids, token_type_ids)
 
         # Combine word embedding and descrip embs.
-        embedding_output = embedding_output + ent_emb
+        import ipdb
+        ipdb.set_trace()
+        if use_ent_emb:
+          embedding_output = embedding_output + ent_emb
 
         # For debugging.
         if False:
@@ -1235,7 +1239,7 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
     #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, labels=None):
     def forward(self, input_ids, token_type_ids=None, attention_mask=None,
         input_ent=None, ent_mask=None, labels=None, tokenizer=None,
-        qid2idx=None, entity_id2label=None):
+        qid2idx=None, entity_id2label=None, use_ent_emb=True):
         # Shape: batch, max_seq, max_parent, dim
         #  ent_emb = self.descrip_embs(input_ent)
         ent_emb = self.descrip_embs[input_ent]
@@ -1259,7 +1263,7 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
         #  _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
             ent_emb, ent_mask, output_all_encoded_layers=False,
-            tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, input_ent=input_ent)
+            tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, input_ent=input_ent, use_ent_emb=use_ent_emb)
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 
