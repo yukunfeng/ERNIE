@@ -533,13 +533,13 @@ def main():
       dev = convert_examples_to_features(
           dev_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
           args.threshold, entity_id2parents, entity_id2label,
-          args.max_parent, qid2idx, 1)
+          args.max_parent, qid2idx, 0)
 
       test_examples = processor.get_test_examples(args.data_dir)
       test = convert_examples_to_features(
           test_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
           args.threshold, entity_id2parents, entity_id2label,
-          args.max_parent, qid2idx, 1)
+          args.max_parent, qid2idx, 0)
 
       if mode == "dev":
           eval_features = dev
@@ -696,7 +696,9 @@ def main():
                     optimizer.zero_grad()
                     global_step += 1
                     if global_step % 150 == 0 and global_step > 0:
-                        pass
+                        do_eval("test")
+                        logger.info(f"above is at {global_step} steps, epoch:{epoch}")
+                        do_eval("dev")
                         #  model_to_save = model.module if hasattr(model, 'module') else model
                         #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
                         #  if args.data_dir.lower().find('figer') < 0:
