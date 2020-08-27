@@ -528,7 +528,7 @@ def main():
     #  embed = torch.nn.Embedding.from_pretrained(embed)
     #  logger.info("Shape of entity embedding: "+str(embed.weight.size()))
     #  del vecs
-    def do_eval(mode="test"):
+    def do_eval(mode="test", current_step=None):
       dev_examples = processor.get_dev_examples(args.data_dir)
       dev = convert_examples_to_features(
           dev_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
@@ -631,7 +631,9 @@ def main():
       result = {'eval_loss': eval_loss,
               'eval_accuracy': eval_accuracy,
               'macro': loose_macro(true, pred),
-              'micro': loose_micro(true, pred)
+              'micro': loose_micro(true, pred),
+              'current_step': current_step,
+              'mode': mode
               }
 
       logger.info(f"***** Eval results on {mode} *****")
