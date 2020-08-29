@@ -70,6 +70,94 @@ def load_wikidata(prep_input_path: str):
   return wiki_title2id, entity_id2label, entity_id2parents
 
 
+def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0):
+  qids_required = {}
+
+  sent_count = 0
+  for file_dir, _, filenames in os.walk(path_dir):
+      for filename in filenames:
+        file_path = os.path.join(file_dir, filename)
+        if not file_path.endswith("json"):
+          continue
+        if file_path.find("train") < 0:
+          continue
+        with open(file_path, 'r') as myfile:
+          data = json.loads(myfile.read())
+          linked_ent_count = 0
+          for item in data:
+            if 'ann' in item:
+              ents = item['ann']
+            else:
+              ents = item['ents']
+            sent_count += 1
+            for ent in ents:
+              qid = ent[0]
+              confidence = float(ent[3])
+              if confidence < confidence_thre:
+                continue
+              if qid not in qids_required:
+                qids_required[qid] = 0
+              qids_required[qid] += 1
+
+  # Obtain parent node of current qids.
+  ret = load_wikidata(entities_tsv)
+  #  ret = load_wikidata("/Users/yukun/workspace/kg-bert/entities.slimed.tsv")
+  _, entity_id2label, entity_id2parents = ret
+
+  valid_qid_count = {}
+  descrip_ids = {}
+  for qid, freq in qids_required.items():
+    if qid not in entity_id2parents:
+      continue
+    parent_qids = entity_id2parents[qid]
+    for parent_qid in parent_qids:
+      if parent_qid not in entity_id2label:
+        continue
+      valid_qid_count[qid] = freq
+      if parent_qid not in descrip_ids:
+        descrip_ids[parent_qid] = 0
+      descrip_ids[parent_qid] += 1
+
+  import collections
+  sorted_dict = collections.OrderedDict(
+      sorted(valid_qid_count.items(), reverse=True, key=lambda t: t[1])
+  )
+  freq_sum = sum(sorted_dict.values())
+  valid_qid_num = len(sorted_dict.keys())
+  avg_valid = freq_sum / valid_qid_num
+  print(f"sum: {freq_sum}")
+  print(f"avg_valid: {avg_valid}")
+  print(f"valid_qid_num: {valid_qid_num}")
+  full_freq_sum = sum(qids_required.values())
+  full_qid_num = len(qids_required.keys())
+  print(f"full_qid_num: {full_qid_num}")
+  print(f"full_freq_sum: {full_freq_sum}")
+  print(f"sent_count: {sent_count}")
+  valid_avg_per_sent = freq_sum / sent_count
+  print(f"valid_avg_per_sent: {valid_avg_per_sent}")
+
+  idx = 0
+  #  for k, v in sorted_dict.items():
+      #  print(f"{idx}\t{v}")
+      #  idx += 1
+
+  # Statistics on descrip_ids
+  descrip_id_unique_num = len(descrip_ids.keys())
+  descrip_id_count = sum(descrip_ids.values())
+  avg_count_per_descrip_id = descrip_id_count / descrip_id_unique_num
+  print(f"descrip_id_unique_num: {descrip_id_unique_num}")
+  print(f"descrip_id_count: {descrip_id_count}")
+  print(f"avg_count_per_descrip_id: {avg_count_per_descrip_id}")
+
+  descrip_ids = collections.OrderedDict(
+      sorted(descrip_ids.items(), reverse=True, key=lambda t: t[1])
+  )
+  idx = 0
+  for k, v in descrip_ids.items():
+      print(f"{idx}\t{v}")
+      idx += 1
+  
+
 def collect_qids(path_dir, entities_tsv, confidence_thre=0.0):
   qids_required = {}
 
@@ -257,7 +345,8 @@ if __name__ == "__main__":
   
   args = parser.parse_args()
 
-  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  prepare_desrip_ebm(qid2descrip, args)
+  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  #  prepare_desrip_ebm(qid2descrip, args)
 
-  load_descrip(args.output_base, args.entities_tsv)
+  #  load_descrip(args.output_base, args.entities_tsv)
+  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold)

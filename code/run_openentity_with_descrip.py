@@ -628,12 +628,13 @@ def main():
               precision = 0.
           recall = num_correct_labels / num_true_labels
           return precision, recall, f1( precision, recall)
-      result = {'eval_loss': eval_loss,
-              'eval_accuracy': eval_accuracy,
-              'macro': loose_macro(true, pred),
-              'micro': loose_micro(true, pred),
+      result = {
+              'mode': mode,
               'current_step': current_step,
-              'mode': mode
+              'micro': [f"{s * 100: 5.2f}" for s in loose_micro(true, pred)],
+              'macro': [f"{s * 100: 5.2f}" for s in loose_macro(true, pred)],
+              'eval_accuracy': eval_accuracy,
+              'eval_loss': eval_loss,
               }
 
       logger.info(f"***** Eval results on {mode} *****")
@@ -698,9 +699,10 @@ def main():
                     optimizer.zero_grad()
                     global_step += 1
                     if global_step % 150 == 0 and global_step > 0:
-                        do_eval("test")
+                        do_eval("test", global_step)
+                        do_eval("dev", global_step)
+                        model.train()
                         logger.info(f"above is at {global_step} steps, epoch:{epoch}")
-                        do_eval("dev")
                         #  model_to_save = model.module if hasattr(model, 'module') else model
                         #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
                         #  if args.data_dir.lower().find('figer') < 0:
@@ -708,8 +710,9 @@ def main():
             #  model_to_save = model.module if hasattr(model, 'module') else model
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(epoch))
             #  torch.save(model_to_save.state_dict(), output_model_file)
-            do_eval("test")
-            do_eval("dev")
+        do_eval("test", global_step)
+        do_eval("dev", global_step)
+        logger.info("\n\n\n\n Finished! \n\n\n\n\n\n\n")
     exit(0)
 
 if __name__ == "__main__":
