@@ -70,8 +70,9 @@ def load_wikidata(prep_input_path: str):
   return wiki_title2id, entity_id2label, entity_id2parents
 
 
-def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0):
+def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
   qids_required = {}
+  target_qids = {}
 
   sent_count = 0
   for file_dir, _, filenames in os.walk(path_dir):
@@ -95,6 +96,18 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0):
               confidence = float(ent[3])
               if confidence < confidence_thre:
                 continue
+              # Check center qid
+              if file_path.lower().find("openentity") >= 0 or file_path.lower().find("figer") >= 0:
+                if item["start"] == ent[1] and item["end"] == ent[2]:
+                  if qid not in target_qids:
+                    target_qids[qid] = 0
+                  target_qids[qid] += 1
+              elif file_path.lower().find("tacred") >= 0 or file_path.lower().find("fewrel") >= 0:
+                if (ent[1] == item["ents"][0][1] and ent[2] == item["ents"][0][2]) or (ent[1] == item["ents"][1][1] and ent[2] == item["ents"][1][2]):
+                  if qid not in target_qids:
+                    target_qids[qid] = 0
+                  target_qids[qid] += 1
+
               if qid not in qids_required:
                 qids_required[qid] = 0
               qids_required[qid] += 1
@@ -103,6 +116,9 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0):
   ret = load_wikidata(entities_tsv)
   #  ret = load_wikidata("/Users/yukun/workspace/kg-bert/entities.slimed.tsv")
   _, entity_id2label, entity_id2parents = ret
+
+  if mode == "target":
+    qids_required = target_qids
 
   valid_qid_count = {}
   descrip_ids = {}
@@ -315,6 +331,11 @@ if __name__ == "__main__":
                       type=str,
                       required=True,
                       help="The input data dir. Should contain the .tsv files (or other data files) for the task.")
+  parser.add_argument("--statistics_mode",
+                      default="all",
+                      type=str,
+                      required=False,
+                      help="target or all")
   parser.add_argument("--output_base",
                       default="descrip",
                       type=str)
@@ -349,4 +370,4 @@ if __name__ == "__main__":
   #  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold)
+  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
