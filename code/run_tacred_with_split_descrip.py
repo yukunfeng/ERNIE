@@ -36,7 +36,7 @@ from torch.utils.data import TensorDataset, DataLoader, RandomSampler, Sequentia
 from torch.utils.data.distributed import DistributedSampler
 
 from knowledge_bert.tokenization import BertTokenizer
-from knowledge_bert.modeling import BertForSequenceClassificationDescrip
+from knowledge_bert.modeling import BertForSequenceClassificationSplitDescrip
 from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from descrip_emb_util import load_descrip
@@ -73,7 +73,7 @@ class InputFeatures(object):
     """A single set of features of data."""
 
     def __init__(self, input_ids, input_mask, segment_ids, input_ent, ent_mask,
-        label_id, target_ent, split_target_pos):
+        label_id, target_ent, split_target_pos, target_ent_mask):
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.segment_ids = segment_ids
@@ -82,6 +82,7 @@ class InputFeatures(object):
         self.ent_mask = ent_mask
         self.target_ent = target_ent
         self.split_target_pos = split_target_pos
+        self.target_ent_mask = target_ent_mask
 
 
 class DataProcessor(object):
@@ -166,10 +167,10 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         h_name = ex_text_a[h[1]:h[2]]
         t_name = ex_text_a[t[1]:t[2]]
 
-        targets = [h_name, t_name]
+        targets = [h, t]
         target_num = len(targets)
         ent_pos = [x for x in example.text_b if x[-1]>threshold]
-        target_qids, non_target_qids = split_ents(ex_text_a, ent_pos, targets)
+        target_qids, non_target_qids = split_ents(ent_pos, targets)
 
         # Add [HD] and [TL], which are "#" and "$" respectively.
         if h[1] < t[1]:
@@ -207,6 +208,9 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
             if len(tokens_a) > max_seq_length - 2 - target_num:
                 tokens_a = tokens_a[:(max_seq_length - 2 - target_num)]
                 entities_a = entities_a[:(max_seq_length - 2 - target_num)]
+            if len(split_target_ents) > target_num:
+              split_target_ents = split_target_ents[:target_num]
+              split_target_pos = split_target_pos[:target_num]
 
         tokens = ["[CLS]"] + tokens_a + ["[SEP]"] * (target_num + 1)
         ents = [["UNK"]*max_parent] + entities_a + [["UNK"]*max_parent] * (target_num + 1)
@@ -261,16 +265,23 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         padding = [0] * (target_num - len(split_target_pos))
         split_target_pos += padding
         target_ent = []
+        target_ent_mask = []
         for ent in split_target_ents:
             target_ent_ = []
+            target_ent_mask_ = []
             for qid in ent:
               if qid != "UNK" and qid in qid2idx:
                   target_ent_.append(qid2idx[qid])
+                  target_ent_mask_.append(1)
               else:
                   target_ent_.append(0)
+                  target_ent_mask_.append(0)
             target_ent.append(target_ent_)
+            target_ent_mask.append(target_ent_mask_)
+
         padding = [[0]*max_parent] * (target_num - len(target_ent))
         target_ent += padding
+        target_ent_mask += padding
 
         padding = [[0]*max_parent] * (max_seq_length - len(input_ent))
         ent_mask += padding
@@ -283,6 +294,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         assert len(ent_mask) == max_seq_length
         assert len(split_target_pos) == target_num
         assert len(target_ent) == target_num
+        assert len(target_ent_mask) == target_num
 
         label_id = label_map[example.label]
         if ex_index <  verbose:
@@ -298,6 +310,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
                     "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
             logger.info("label: %s (id = %d)" % (example.label, label_id))
             logger.info(f"target_ent: {target_ent}")
+            logger.info(f"target_ent_mask: {target_ent_mask}")
             logger.info(f"split_target_pos: {split_target_pos}")
 
         features.append(
@@ -308,7 +321,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
                               ent_mask=ent_mask,
                               label_id=label_id,
                               target_ent=target_ent,
-                              split_target_pos=split_target_pos))
+                              split_target_pos=split_target_pos,
+                              target_ent_mask=target_ent_mask))
     return features
 
 
@@ -488,7 +502,7 @@ def main():
         len(train_examples) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
 
     # Prepare model
-    model, _ = BertForSequenceClassificationDescrip.from_pretrained(args.ernie_model,
+    model, _ = BertForSequenceClassificationSplitDescrip.from_pretrained(args.ernie_model,
               cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
               num_labels = num_labels, descrip_embs=descrip_embs)
     if args.fp16:
@@ -570,7 +584,12 @@ def main():
       all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
       all_ent = torch.tensor([f.input_ent for f in eval_features], dtype=torch.long)
       all_ent_masks = torch.tensor([f.ent_mask for f in eval_features], dtype=torch.long)
-      eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_ent, all_ent_masks, all_label_ids)
+      all_target_ent = torch.tensor([f.target_ent for f in train_features], dtype=torch.long)
+      all_target_pos = torch.tensor([f.split_target_pos for f in train_features], dtype=torch.long)
+      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in train_features], dtype=torch.long)
+      eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids,
+          all_ent, all_ent_masks, all_label_ids, all_target_ent,
+          all_target_pos, all_target_ent_mask)
       # Run prediction for full data
       eval_sampler = SequentialSampler(eval_data)
       eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
@@ -580,19 +599,34 @@ def main():
       nb_eval_steps, nb_eval_examples = 0, 0
       eval_label_ids = []
       eval_preds = []
-      for input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids in eval_dataloader:
+      for input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids, target_ent, split_target_pos, target_ent_mask in eval_dataloader:
         input_ids = input_ids.to(device)
         input_mask = input_mask.to(device)
         segment_ids = segment_ids.to(device)
         input_ent = input_ent.to(device)
         ent_mask = ent_mask.to(device)
         label_ids = label_ids.to(device)
+        target_ent = target_ent.to(device)
+        split_target_pos = split_target_pos.to(device)
+        target_ent_mask = target_ent_mask.to(device)
 
         with torch.no_grad():
           tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent,
-              ent_mask, label_ids, use_ent_emb=(not args.no_descrip))
+              ent_mask, label_ids, tokenizer=tokenizer, qid2idx=qid2idx,
+              entity_id2label=entity_id2label, use_ent_emb=(not
+                args.no_descrip), target_ent=target_ent,
+              split_target_pos=split_target_pos,
+              target_ent_mask=target_ent_mask)
           logits = model(input_ids, segment_ids, input_mask, input_ent,
-              ent_mask, use_ent_emb=(not args.no_descrip))
+              ent_mask, tokenizer=tokenizer, qid2idx=qid2idx,
+              entity_id2label=entity_id2label, use_ent_emb=(not
+                args.no_descrip), target_ent=target_ent,
+              split_target_pos=split_target_pos,
+              target_ent_mask=target_ent_mask)
+          #  tmp_eval_loss = model(input_ids, segment_ids, input_mask, input_ent,
+              #  ent_mask, label_ids, use_ent_emb=(not args.no_descrip))
+          #  logits = model(input_ids, segment_ids, input_mask, input_ent,
+              #  ent_mask, use_ent_emb=(not args.no_descrip))
 
         logits = logits.detach().cpu().numpy()
         label_ids = label_ids.to('cpu').numpy()
@@ -658,7 +692,12 @@ def main():
         all_label_ids = torch.tensor([f.label_id for f in train_features], dtype=torch.long)
         all_ent = torch.tensor([f.input_ent for f in train_features], dtype=torch.long)
         all_ent_masks = torch.tensor([f.ent_mask for f in train_features], dtype=torch.long)
-        train_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids, all_ent, all_ent_masks, all_label_ids)
+        all_target_ent = torch.tensor([f.target_ent for f in train_features], dtype=torch.long)
+        all_target_pos = torch.tensor([f.split_target_pos for f in train_features], dtype=torch.long)
+        all_target_ent_mask = torch.tensor([f.target_ent_mask for f in train_features], dtype=torch.long)
+        train_data = TensorDataset(all_input_ids, all_input_mask,
+            all_segment_ids, all_ent, all_ent_masks, all_label_ids,
+            all_target_ent, all_target_pos, all_target_ent_mask)
         if args.local_rank == -1:
             train_sampler = RandomSampler(train_data)
         else:
@@ -672,13 +711,17 @@ def main():
             nb_tr_examples, nb_tr_steps = 0, 0
             model.train()
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
-                batch = tuple(t.to(device) if i != 3 else t for i, t in enumerate(batch))
-                input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
+                batch = tuple(t.to(device) for i, t in enumerate(batch))
+                #  input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids = batch
+                input_ids, input_mask, segment_ids, input_ent, ent_mask, label_ids, target_ent, split_target_pos, target_ent_mask = batch
                 #  input_ent = embed(input_ent+1).to(device) # -1 -> 0
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent, ent_mask, label_ids)
                 loss = model(input_ids, segment_ids, input_mask, input_ent,
                     ent_mask, label_ids, tokenizer=tokenizer, qid2idx=qid2idx,
-                    entity_id2label=entity_id2label, use_ent_emb=(not args.no_descrip))
+                    entity_id2label=entity_id2label, use_ent_emb=(not
+                      args.no_descrip), target_ent=target_ent,
+                    split_target_pos=split_target_pos,
+                    target_ent_mask=target_ent_mask)
                 #  loss = model(input_ids, segment_ids, input_mask, input_ent.half(), ent_mask, label_ids)
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.

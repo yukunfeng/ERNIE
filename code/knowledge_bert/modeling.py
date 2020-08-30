@@ -1320,6 +1320,69 @@ class BertForSequenceClassificationDescrip(PreTrainedBertModel):
             return logits
 
 
+def ent_emb_average(ent_mask, input_ent, descrip_embs):
+  # Shape: batch, max_seq, max_parent, dim
+  ent_emb = descrip_embs[input_ent]
+  # Apply masks. shape: same
+  ent_emb = ent_mask.type(ent_emb.dtype).unsqueeze(dim=3).expand_as(ent_emb) * ent_emb
+  # Sum over max_parent. shape: batch, max_seq, dim
+  ent_emb = ent_emb.sum(dim=2)
+
+  # Prepare valid denominator for averaging.
+   
+  # Sum over max_parent. Shape batch, max_seq max_parent -> batch max_seq 
+  reduced_ent_mask = ent_mask.sum(dim=2)
+  # 0 count must be avoided.
+  zero_div_protected_mask = (reduced_ent_mask == 0).type(reduced_ent_mask.dtype)
+  zero_div_protected_mask = reduced_ent_mask + zero_div_protected_mask
+  # Shape batch, max_seq -> batch max_seq dim
+  zero_div_protected_mask = zero_div_protected_mask.unsqueeze(dim=2).expand_as(ent_emb)
+  # Averaging
+  ent_emb = ent_emb / zero_div_protected_mask.type(ent_emb.dtype)
+
+  return ent_emb
+
+
+class BertForSequenceClassificationSplitDescrip(PreTrainedBertModel):
+    def __init__(self, config, num_labels=2, descrip_embs=None):
+        super(BertForSequenceClassificationSplitDescrip, self).__init__(config)
+        self.num_labels = num_labels
+        #  self.descrip_embs = nn.Embedding(descrip_embs.shape[0], descrip_embs.shape[1])
+        #  self.descrip_embs.weight.data.copy_(descrip_embs)
+        self.descrip_embs = descrip_embs
+        self.bert = BertModelDescrip(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.classifier = nn.Linear(config.hidden_size, num_labels)
+        self.apply(self.init_bert_weights)
+
+    #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, input_ent=None, ent_mask=None, labels=None):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None,
+        input_ent=None, ent_mask=None, labels=None, tokenizer=None,
+        qid2idx=None, entity_id2label=None, use_ent_emb=True, target_ent=None,
+        split_target_pos=None, target_ent_mask=None):
+
+        # Prepare for target ent emb
+        import ipdb
+        ipdb.set_trace()
+        target_ent_emb = ent_emb_average(target_ent_mask, target_ent, self.descrip_embs)
+
+        ent_emb = ent_emb_average(ent_mask, input_ent, self.descrip_embs)
+
+        #  _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
+            ent_emb, ent_mask, output_all_encoded_layers=False,
+            tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, input_ent=input_ent, use_ent_emb=use_ent_emb)
+        pooled_output = self.dropout(pooled_output)
+        logits = self.classifier(pooled_output)
+
+        if labels is not None:
+            loss_fct = CrossEntropyLoss()
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1))
+            return loss
+        else:
+            return logits
+
+
 class BertForNQ(PreTrainedBertModel):
 
     def __init__(self, config, num_choices=2):

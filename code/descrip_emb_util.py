@@ -10,20 +10,25 @@ from knowledge_bert.modeling import BertForFeatureEmbs
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 
 
-def split_ents(text, ents, targets):
+def split_ents(ents, targets):
   """Split ents into target and non-target
   targets: list of target entity in text
   returns: qids of target and nontarget ent
   """
   target_qids = []
   non_target_qids = []
-  lowered_targets = [t.lower().strip() for t in targets]
   for i, ent in enumerate(ents, 0):
     ent_start = ent[1]
     ent_end = ent[2]
     qid = ent[0]
-    ent_str = text[ent_start:ent_end].lower().strip()
-    if ent_str in lowered_targets:
+    is_target = False
+    for target in targets:
+      target_start = target[1]
+      target_end = target[2]
+      if ent_start == target_start and ent_end == target_end:
+        is_target = True
+
+    if is_target:
       target_qids.append(qid)
     else:
       non_target_qids.append(qid)
