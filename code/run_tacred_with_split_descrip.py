@@ -72,13 +72,16 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, input_ent, ent_mask, label_id):
+    def __init__(self, input_ids, input_mask, segment_ids, input_ent, ent_mask,
+        label_id, target_ent, split_target_pos):
         self.input_ids = input_ids
         self.input_mask = input_mask
         self.segment_ids = segment_ids
         self.label_id = label_id
         self.input_ent = input_ent
         self.ent_mask = ent_mask
+        self.target_ent = target_ent
+        self.split_target_pos = split_target_pos
 
 
 class DataProcessor(object):
@@ -254,6 +257,21 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
           input_mask[-2] = 1
           input_mask[-1] = 1
 
+        # Padding split_target_pos
+        padding = [0] * (target_num - len(split_target_pos))
+        split_target_pos += padding
+        target_ent = []
+        for ent in split_target_ents:
+            target_ent_ = []
+            for qid in ent:
+              if qid != "UNK" and qid in qid2idx:
+                  target_ent_.append(qid2idx[qid])
+              else:
+                  target_ent_.append(0)
+            target_ent.append(target_ent_)
+        padding = [[0]*max_parent] * (target_num - len(target_ent))
+        target_ent += padding
+
         padding = [[0]*max_parent] * (max_seq_length - len(input_ent))
         ent_mask += padding
         input_ent += padding
@@ -263,6 +281,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         assert len(segment_ids) == max_seq_length
         assert len(input_ent) == max_seq_length
         assert len(ent_mask) == max_seq_length
+        assert len(split_target_pos) == target_num
+        assert len(target_ent) == target_num
 
         label_id = label_map[example.label]
         if ex_index <  verbose:
@@ -277,6 +297,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
             logger.info(
                     "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
             logger.info("label: %s (id = %d)" % (example.label, label_id))
+            logger.info(f"target_ent: {target_ent}")
+            logger.info(f"split_target_pos: {split_target_pos}")
 
         features.append(
                 InputFeatures(input_ids=input_ids,
@@ -284,7 +306,9 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
                               segment_ids=segment_ids,
                               input_ent=input_ent,
                               ent_mask=ent_mask,
-                              label_id=label_id))
+                              label_id=label_id,
+                              target_ent=target_ent,
+                              split_target_pos=split_target_pos))
     return features
 
 
