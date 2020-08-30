@@ -9,6 +9,27 @@ from knowledge_bert.tokenization import BertTokenizer
 from knowledge_bert.modeling import BertForFeatureEmbs
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 
+
+def split_ents(text, ents, targets):
+  """Split ents into target and non-target
+  targets: list of target entity in text
+  returns: qids of target and nontarget ent
+  """
+  target_qids = []
+  non_target_qids = []
+  lowered_targets = [t.lower().strip() for t in targets]
+  for i, ent in enumerate(ents, 0):
+    ent_start = ent[1]
+    ent_end = ent[2]
+    qid = ent[0]
+    ent_str = text[ent_start:ent_end].lower().strip()
+    if ent_str in lowered_targets:
+      target_qids.append(qid)
+    else:
+      non_target_qids.append(qid)
+
+  return target_qids, non_target_qids
+
 def load_wikidata(prep_input_path: str):
   """Parses the preprocessed wikdata file into Python dicts.
 
@@ -366,8 +387,8 @@ if __name__ == "__main__":
   
   args = parser.parse_args()
 
-  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  #  prepare_desrip_ebm(qid2descrip, args)
+  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
+  #  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
