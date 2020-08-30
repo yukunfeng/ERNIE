@@ -180,7 +180,10 @@ class BertTokenizer(object):
 
     def tokenize_with_split_descrip(self, text, ents, entity_id2parents, entity_id2label, target_qids, non_target_qids, max_parent=3):
         split_tokens = []
-        split_ents = []
+        split_target_ents = []
+        split_target_pos = []
+        split_nontgt_ents = []
+
         for token, ent in self.basic_tokenizer.tokenize(text, ents):
             mark = True
             for sub_token in self.wordpiece_tokenizer.tokenize(token):
@@ -196,19 +199,26 @@ class BertTokenizer(object):
                     parents = valid_parents
                     # Sort by descrip length.
                     #  parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
-                    parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()), reverse=True)
+                    #  parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()), reverse=True)
                     # Random shuffle
-                    #  import random
-                    #  random.shuffle(parents)
+                    import random
+                    random.shuffle(parents)
                     parents = parents[0:max_parent]
                     left_num = max_parent - len(parents)
                     if left_num > 0:
                       parents = parents + ["UNK"] * left_num
-                    split_ents.append(parents)
+
+                    if ent in target_qids:
+                      split_target_ents.append(parents)
+                      split_target_pos.append(len(split_tokens) - 1)
+                      split_nontgt_ents.append(["UNK"] * max_parent)
+                    else:
+                      split_nontgt_ents.append(parents)
+
                     mark = False
                 else:
-                    split_ents.append(["UNK"] * max_parent)
-        return split_tokens, split_ents
+                    split_nontgt_ents.append(["UNK"] * max_parent)
+        return split_tokens, split_target_ents, split_target_pos, split_nontgt_ents
 
     def tokenize_no_ent(self, text):
         split_tokens = []
