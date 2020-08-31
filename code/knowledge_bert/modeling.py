@@ -1233,6 +1233,44 @@ class BertForNextSentencePrediction(PreTrainedBertModel):
             return seq_relationship_score
 
 
+class BertForEntityTypingSplitDescrip(PreTrainedBertModel):
+    def __init__(self, config, num_labels=2, descrip_embs=None):
+        super(BertForEntityTypingSplitDescrip, self).__init__(config)
+        self.num_labels = num_labels
+        self.descrip_embs = descrip_embs
+        self.bert = BertModelSplitDescrip(config)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+        self.typing = nn.Linear(config.hidden_size, num_labels, False)
+        self.apply(self.init_bert_weights)
+
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None,
+        input_ent=None, ent_mask=None, labels=None, tokenizer=None,
+        qid2idx=None, entity_id2label=None, use_ent_emb=True, target_ent=None,
+        split_target_pos=None, target_ent_mask=None):
+        # Prepare for target ent emb
+        target_ent_emb = ent_emb_average(target_ent_mask, target_ent, self.descrip_embs)
+
+        ent_emb = ent_emb_average(ent_mask, input_ent, self.descrip_embs)
+
+        _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
+            ent_emb, ent_mask, output_all_encoded_layers=False,
+            tokenizer=tokenizer, qid2idx=qid2idx,
+            entity_id2label=entity_id2label, input_ent=input_ent,
+            use_ent_emb=use_ent_emb, target_ent=target_ent,
+            target_ent_emb=target_ent_emb, split_target_pos=split_target_pos,
+            target_ent_mask=target_ent_mask)
+
+        pooled_output = self.dropout(pooled_output)
+        logits = self.typing(pooled_output)
+
+        if labels is not None:
+            loss_fct = BCEWithLogitsLoss()
+            loss = loss_fct(logits.view(-1, self.num_labels), labels.view(-1, self.num_labels))
+            return loss
+        else:
+            return logits
+
+
 class BertForEntityTypingDescrip(PreTrainedBertModel):
     def __init__(self, config, num_labels=2, descrip_embs=None):
         super(BertForEntityTypingDescrip, self).__init__(config)
