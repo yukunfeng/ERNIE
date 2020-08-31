@@ -25,7 +25,6 @@ import argparse
 import random
 from tqdm import tqdm, trange
 import simplejson as json
-from collections import Counter
 
 #  from sklearn.metrics import f1_score
 from sklearn.metrics import precision_recall_fscore_support as f1_score
@@ -105,7 +104,7 @@ class DataProcessor(object):
         with open(input_file, "r", encoding='utf-8') as f:
             return json.loads(f.read())
 
-class TacredProcessor(DataProcessor):
+class FewrelProcessor(DataProcessor):
     """Processor for the CoLA data set (GLUE version)."""
 
     def get_train_examples(self, data_dir):
@@ -141,7 +140,7 @@ class TacredProcessor(DataProcessor):
             text_a = (line['text'], line['ents'])
             label = line['label']
             examples.append(
-                InputExample(guid=guid, text_a=text_a, text_b=line['ann'], label=label))
+                InputExample(guid=guid, text_a=text_a, text_b=None, label=label))
         return examples
 
 
@@ -169,7 +168,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
 
         targets = [h, t]
         target_num = len(targets)
-        ent_pos = [x for x in example.text_b if x[-1]>threshold]
+        #  ent_pos = [x for x in example.text_b if x[-1]>threshold]
+        ent_pos = targets
         target_qids, non_target_qids = split_ents(ent_pos, targets)
 
         # Add [HD] and [TL], which are "#" and "$" respectively.
@@ -178,26 +178,26 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         else:
             ex_text_a = ex_text_a[:t[1]] + "$ "+t_name+" $" + ex_text_a[t[2]:h[1]] + "# "+h_name+" #" + ex_text_a[h[2]:]
 
-        for x in ent_pos:
-            cnt = 0
-            if x[1] > h[2]:
-                cnt += 2
-            if x[1] >= h[1]:
-                cnt += 2
-            if x[1] >= t[1]:
-                cnt += 2
-            if x[1] > t[2]:
-                cnt += 2
-            x[1] += cnt
-            x[2] += cnt
-        #  tokens_a, entities_a = tokenizer.tokenize(ex_text_a, ent_pos)
-
+        if h[1] < t[1]:
+            h[1] += 2
+            h[2] += 2
+            t[1] += 6
+            t[2] += 6
+        else:
+            h[1] += 6
+            h[2] += 6
+            t[1] += 2
+            t[2] += 2
+        #  tokens_a, entities_a = tokenizer.tokenize_with_descrip(ex_text_a, [h, t], entity_id2parents, entity_id2label, max_parent)
         tokens_a, split_target_ents, split_target_pos, entities_a = tokenizer.tokenize_with_split_descrip(
           ex_text_a, ent_pos, entity_id2parents, entity_id2label, target_qids,
           non_target_qids, max_parent)
+        #  if len([x for x in entities_a if x!=["UNK"]*max_parent]) != 2:
+            #  print(f"QID do not have two for fewrel")
+            #  exit(1)
 
         tokens_b = None
-        if False:
+        if example.text_b:
             tokens_b, entities_b = tokenizer.tokenize(example.text_b[0], [x for x in example.text_b[1] if x[-1]>threshold])
             # Modifies `tokens_a` and `tokens_b` in place so that the total
             # length is less than the specified length.
@@ -218,7 +218,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         # Update split_target_pos
         for i in range(len(split_target_pos)):
           split_target_pos[i] += 1
-        
+
         if tokens_b:
             tokens += tokens_b + ["[SEP]"]
             ents += entities_b + ["UNK"]
@@ -452,7 +452,7 @@ def main():
     args = parser.parse_args()
 
     entity_id2label, entity_id2parents, qid2idx, descrip_embs = load_descrip(args.emb_base, args.entities_tsv)
-    processors = TacredProcessor
+    processors = FewrelProcessor
 
     num_labels_task = 80
 
@@ -480,7 +480,7 @@ def main():
     if n_gpu > 0:
         torch.cuda.manual_seed_all(args.seed)
 
-    if not args.do_train and not args.do_eval:
+    if not args.do_train:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
 
     if os.path.exists(args.output_dir) and os.listdir(args.output_dir) and args.do_train:
@@ -489,6 +489,7 @@ def main():
 
 
     processor = processors()
+    num_labels = num_labels_task
     label_list = None
 
     tokenizer = BertTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
@@ -496,8 +497,6 @@ def main():
     train_examples = None
     num_train_steps = None
     train_examples, label_list = processor.get_train_examples(args.data_dir)
-    num_labels = len(label_list)
-    
     num_train_steps = int(
         len(train_examples) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
 
@@ -539,7 +538,7 @@ def main():
 
         optimizer = FusedAdam(optimizer_grouped_parameters,
                               lr=args.learning_rate,
-                              bias_correction=True,
+                              bias_correction=False,
                               max_grad_norm=1.0)
         if args.loss_scale == 0:
             optimizer = FP16_Optimizer(optimizer, dynamic_loss_scale=True)
@@ -552,7 +551,7 @@ def main():
                              warmup=args.warmup_proportion,
                              t_total=t_total)
     global_step = 0
-
+    
 
     def do_eval(mode="test"):
       dev_examples = processor.get_dev_examples(args.data_dir)
@@ -644,15 +643,7 @@ def main():
       eval_loss = eval_loss / nb_eval_steps
       eval_accuracy = eval_accuracy / nb_eval_examples
 
-      label_counter = Counter(eval_label_ids)
-      NA_label = label_counter.most_common(n=1)[0][0]
-      included_labels = {}
-      for label in eval_label_ids:
-        if label != NA_label:
-           included_labels[label] = 0
-      included_labels = list(included_labels.keys())
-
-      p, r, f, _ = f1_score(y_true=eval_label_ids, y_pred=eval_preds, labels=included_labels, average='micro')
+      p, r, f, _ = f1_score(y_true=eval_label_ids, y_pred=eval_preds, average='micro')
       result = {'eval_loss': eval_loss,
                 'eval_accuracy': eval_accuracy ,
                 'p': p, 'r':r, 'f': f
@@ -667,7 +658,7 @@ def main():
             train_examples, label_list, args.max_seq_length, tokenizer,
             args.threshold, entity_id2parents, entity_id2label,
             args.max_parent, qid2idx)
- 
+
         #  vecs = []
         #  vecs.append([0]*100)
         #  with open("kg_embed/entity2vec.vec", 'r') as fin:
