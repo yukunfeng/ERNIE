@@ -33,7 +33,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 from knowledge_bert.typing import BertTokenizer as BertTokenizer_label
 from knowledge_bert.tokenization import BertTokenizer
-from knowledge_bert.modeling import BertForSequenceClassificationSplitDescrip
+from knowledge_bert.modeling import BertForEntityTypingSplitDescrip
 from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from descrip_emb_util import load_descrip
@@ -522,7 +522,7 @@ def main():
             len(train_examples) / args.train_batch_size / args.gradient_accumulation_steps * args.num_train_epochs)
 
     # Prepare model
-    model, _ = BertForEntityTypingDescrip.from_pretrained(args.ernie_model,
+    model, _ = BertForEntityTypingSplitDescrip.from_pretrained(args.ernie_model,
               cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
               num_labels = len(label_list), descrip_embs=descrip_embs)
     if args.fp16:
@@ -618,7 +618,7 @@ def main():
       all_labels = torch.tensor([f.labels for f in eval_features], dtype=torch.float)
       all_target_ent = torch.tensor([f.target_ent for f in eval_features], dtype=torch.long)
       all_target_pos = torch.tensor([f.split_target_pos for f in eval_features], dtype=torch.long)
-      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in
+      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in train_features], dtype=torch.long)
       eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids,
         all_input_ent, all_ent_mask, all_labels, all_target_ent, all_target_pos, all_target_ent_mask)
       # Run prediction for full data
