@@ -202,6 +202,44 @@ class BertEmbeddings(nn.Module):
         return embeddings
 
 
+class BertEmbeddingsForSplitDescrip(nn.Module):
+    """Construct the embeddings from word, position and token_type embeddings.
+    """
+    def __init__(self, config):
+        super(BertEmbeddingsForSplitDescrip, self).__init__()
+        self.word_embeddings = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.position_embeddings = nn.Embedding(config.max_position_embeddings, config.hidden_size)
+        self.token_type_embeddings = nn.Embedding(config.type_vocab_size, config.hidden_size)
+
+        # self.LayerNorm is not snake-cased to stick with TensorFlow model variable name and be able to load
+        # any TensorFlow checkpoint file
+        self.LayerNorm = BertLayerNorm(config.hidden_size, eps=1e-12)
+        self.dropout = nn.Dropout(config.hidden_dropout_prob)
+
+    def forward(self, input_ids, token_type_ids=None, split_target_pos=None, target_ent_emb=None):
+        seq_length = input_ids.size(1)
+        target_num = split_target_pos.size(1)
+        position_ids = torch.arange(seq_length - target_num, dtype=torch.long, device=input_ids.device)
+        #  position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+        position_ids = position_ids.unsqueeze(0).expand_as(input_ids[:, 0:-target_num])
+        position_ids = torch.cat([position_ids, split_target_pos], dim=1)
+        if token_type_ids is None:
+            token_type_ids = torch.zeros_like(input_ids)
+
+        words_embeddings = self.word_embeddings(input_ids)
+        # 0 the last two word emb which is for target descrip
+        words_embeddings[:, -target_num:, :] = words_embeddings[:, -target_num:, :] * 0
+        position_embeddings = self.position_embeddings(position_ids)
+        token_type_embeddings = self.token_type_embeddings(token_type_ids)
+        # 0 the last two token type emb which is for target descrip
+        token_type_embeddings[:, -target_num:, :] = token_type_embeddings[:, -target_num:, :] * 0
+
+        embeddings = words_embeddings + position_embeddings + token_type_embeddings
+        embeddings[:, -target_num:, :] = embeddings[:, -target_num:, :] + target_ent_emb
+        embeddings = self.LayerNorm(embeddings)
+        embeddings = self.dropout(embeddings)
+        return embeddings
+
 class BertSelfAttention(nn.Module):
     def __init__(self, config):
         super(BertSelfAttention, self).__init__()
@@ -858,6 +896,96 @@ class BertModelDescrip(PreTrainedBertModel):
         return encoded_layers, pooled_output
 
 
+class BertModelSplitDescrip(PreTrainedBertModel):
+    def __init__(self, config):
+        super(BertModelSplitDescrip, self).__init__(config)
+        self.embeddings = BertEmbeddingsForSplitDescrip(config)
+        self.encoder = BertEncoder(config)
+        self.pooler = BertPooler(config)
+        self.apply(self.init_bert_weights)
+
+    #  def forward(self, input_ids, token_type_ids=None, attention_mask=None, ent_emb=None, ent_mask=None, output_all_encoded_layers=True):
+    def forward(self, input_ids, token_type_ids=None, attention_mask=None,
+        ent_emb=None, ent_mask=None, output_all_encoded_layers=True,
+        tokenizer=None, qid2idx=None, entity_id2label=None, input_ent=None,
+        use_ent_emb=True, target_ent=None, target_ent_emb=None,
+        split_target_pos=None, target_ent_mask=None):
+        if attention_mask is None:
+            attention_mask = torch.ones_like(input_ids)
+        if token_type_ids is None:
+            token_type_ids = torch.zeros_like(input_ids)
+
+        # We create a 3D attention mask from a 2D tensor mask.
+        # Sizes are [batch_size, 1, 1, to_seq_length]
+        # So we can broadcast to [batch_size, num_heads, from_seq_length, to_seq_length]
+        # this attention mask is more simple than the triangular masking of causal attention
+        # used in OpenAI GPT, we just need to prepare the broadcast dimension here.
+        extended_attention_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+        #  extended_ent_mask = ent_mask.unsqueeze(1).unsqueeze(2)
+
+        # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
+        # masked positions, this operation will create a tensor which is 0.0 for
+        # positions we want to attend and -10000.0 for masked positions.
+        # Since we are adding it to the raw scores before the softmax, this is
+        # effectively the same as removing these entirely.
+        extended_attention_mask = extended_attention_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
+        extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+        #  extended_ent_mask = extended_ent_mask.to(dtype=next(self.parameters()).dtype) # fp16 compatibility
+        #  extended_ent_mask = (1.0 - extended_ent_mask) * -10000.0
+
+        embedding_output = self.embeddings(input_ids, token_type_ids,
+            split_target_pos=split_target_pos, target_ent_emb=target_ent_emb)
+
+        # Combine word embedding and descrip embs.
+        if use_ent_emb:
+          embedding_output = embedding_output + ent_emb
+
+        # For debugging.
+        if False:
+          non_zero_idxs = []
+          reduced_ent_mask = ent_mask.sum(dim=2)
+          for i, row in enumerate(reduced_ent_mask, 0):
+            for j, v in enumerate(row, 0):
+              if v != 0:
+                non_zero_idxs.append([i, j])
+          # Convert input ids to tokens for debugging.    
+          tokens = []
+          for row in input_ids:
+            tokens_ = []
+            for idx in row:
+              token = tokenizer.ids_to_tokens[idx.item()]
+              tokens_.append(token) 
+            tokens.append(tokens_)
+
+          # ent idx to qid and then to description.
+          entid2qid = {}
+          for qid, ent_id in qid2idx.items():
+            entid2qid[ent_id] = qid
+
+          # qid to description.
+          for i, j in non_zero_idxs:
+            ent_id = input_ent[i, j]
+            ent_emb_distance = (ent_emb[i, j] ** 2).sum()
+            token_emb_distance = (embedding_output[i, j] ** 2).sum()
+            qid = entid2qid[ent_id.item()]
+            descrip = entity_id2label[qid]
+            print(f"ent_emb_distance:{ent_emb_distance}")
+            print(f"token_emb_distance:{token_emb_distance}")
+            print(f"qid:{qid}, descrip:{descrip}, tokens:{tokens[i][0:j+4]}")
+
+        encoded_layers = self.encoder(embedding_output,
+                                      extended_attention_mask,
+                                      ent_emb,
+                                      ent_mask,
+                                      ent_mask,
+                                      output_all_encoded_layers=output_all_encoded_layers)
+        sequence_output = encoded_layers[-1]
+        pooled_output = self.pooler(sequence_output)
+        if not output_all_encoded_layers:
+            encoded_layers = encoded_layers[-1]
+        return encoded_layers, pooled_output
+
+
 class BertForFeatureEmbs(PreTrainedBertModel):
     def __init__(self, config):
         super(BertForFeatureEmbs, self).__init__(config)
@@ -1350,7 +1478,7 @@ class BertForSequenceClassificationSplitDescrip(PreTrainedBertModel):
         #  self.descrip_embs = nn.Embedding(descrip_embs.shape[0], descrip_embs.shape[1])
         #  self.descrip_embs.weight.data.copy_(descrip_embs)
         self.descrip_embs = descrip_embs
-        self.bert = BertModelDescrip(config)
+        self.bert = BertModelSplitDescrip(config)
         self.dropout = nn.Dropout(config.hidden_dropout_prob)
         self.classifier = nn.Linear(config.hidden_size, num_labels)
         self.apply(self.init_bert_weights)
@@ -1362,8 +1490,6 @@ class BertForSequenceClassificationSplitDescrip(PreTrainedBertModel):
         split_target_pos=None, target_ent_mask=None):
 
         # Prepare for target ent emb
-        import ipdb
-        ipdb.set_trace()
         target_ent_emb = ent_emb_average(target_ent_mask, target_ent, self.descrip_embs)
 
         ent_emb = ent_emb_average(ent_mask, input_ent, self.descrip_embs)
@@ -1371,7 +1497,12 @@ class BertForSequenceClassificationSplitDescrip(PreTrainedBertModel):
         #  _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask, ent_emb, ent_mask, output_all_encoded_layers=False)
         _, pooled_output = self.bert(input_ids, token_type_ids, attention_mask,
             ent_emb, ent_mask, output_all_encoded_layers=False,
-            tokenizer=tokenizer, qid2idx=qid2idx, entity_id2label=entity_id2label, input_ent=input_ent, use_ent_emb=use_ent_emb)
+            tokenizer=tokenizer, qid2idx=qid2idx,
+            entity_id2label=entity_id2label, input_ent=input_ent,
+            use_ent_emb=use_ent_emb, target_ent=target_ent,
+            target_ent_emb=target_ent_emb, split_target_pos=split_target_pos,
+            target_ent_mask=target_ent_mask)
+
         pooled_output = self.dropout(pooled_output)
         logits = self.classifier(pooled_output)
 

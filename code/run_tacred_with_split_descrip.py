@@ -584,9 +584,10 @@ def main():
       all_label_ids = torch.tensor([f.label_id for f in eval_features], dtype=torch.long)
       all_ent = torch.tensor([f.input_ent for f in eval_features], dtype=torch.long)
       all_ent_masks = torch.tensor([f.ent_mask for f in eval_features], dtype=torch.long)
-      all_target_ent = torch.tensor([f.target_ent for f in train_features], dtype=torch.long)
-      all_target_pos = torch.tensor([f.split_target_pos for f in train_features], dtype=torch.long)
-      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in train_features], dtype=torch.long)
+      all_target_ent = torch.tensor([f.target_ent for f in eval_features], dtype=torch.long)
+      all_target_pos = torch.tensor([f.split_target_pos for f in eval_features], dtype=torch.long)
+      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in
+        eval_features], dtype=torch.long)
       eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids,
           all_ent, all_ent_masks, all_label_ids, all_target_ent,
           all_target_pos, all_target_ent_mask)
@@ -745,6 +746,7 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
+                do_eval("test")
             #  model_to_save = model.module if hasattr(model, 'module') else model
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
             #  torch.save(model_to_save.state_dict(), output_model_file)
