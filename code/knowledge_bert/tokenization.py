@@ -120,7 +120,7 @@ def whitespace_tokenize_ent(text, ents):
 class BertTokenizer(object):
     """Runs end-to-end tokenization: punctuation splitting + wordpiece"""
 
-    def __init__(self, vocab_file, do_lower_case=True, max_len=None):
+    def __init__(self, vocab_file, do_lower_case=True, max_len=None, sort="short"):
         if not os.path.isfile(vocab_file):
             raise ValueError(
                 "Can't find a vocabulary file at path '{}'. To load the vocabulary from a Google pretrained "
@@ -131,6 +131,7 @@ class BertTokenizer(object):
         self.basic_tokenizer = BasicTokenizer(do_lower_case=do_lower_case)
         self.wordpiece_tokenizer = WordpieceTokenizer(vocab=self.vocab)
         self.max_len = max_len if max_len is not None else int(1e12)
+        self.sort = sort
 
     def tokenize(self, text, ents):
         split_tokens = []
@@ -178,7 +179,8 @@ class BertTokenizer(object):
                     split_ents.append(["UNK"] * max_parent)
         return split_tokens, split_ents
 
-    def tokenize_with_split_descrip(self, text, ents, entity_id2parents, entity_id2label, target_qids, non_target_qids, max_parent=3):
+    def tokenize_with_split_descrip(self, text, ents, entity_id2parents,
+        entity_id2label, target_qids, non_target_qids, max_parent=3):
         split_tokens = []
         split_target_ents = []
         split_target_pos = []
@@ -198,11 +200,17 @@ class BertTokenizer(object):
 
                     parents = valid_parents
                     # Sort by descrip length.
-                    parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
-                    #  parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()), reverse=True)
-                    # Random shuffle
-                    #  import random
-                    #  random.shuffle(parents)
+                    if self.sort.lower() == "short".lower():
+                      parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()))
+                    elif self.sort.lower() == "long".lower():
+                      parents = sorted(parents, key=lambda x: len(entity_id2label[x].split()), reverse=True)
+                    elif self.sort.lower() == "random".lower():
+                      #  Random shuffle
+                      import random
+                      random.shuffle(parents)
+                    else:
+                      raise Exception(f"{sort}: not supported")
+
                     parents = parents[0:max_parent]
                     left_num = max_parent - len(parents)
                     if left_num > 0:

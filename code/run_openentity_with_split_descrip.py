@@ -156,6 +156,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
     qid2idx, verbose=2):
     """Loads a data file into a list of `InputBatch`s."""
     label_map = {label : i for i, label in enumerate(label_list)}
+    threshold, target_threshold = thresholds
 
     #  entity2id = {}
     #  with open("kg_embed/entity2id.txt") as fin:
@@ -170,8 +171,8 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
         h = example.text_a[1][0]
         targets = [h]
         target_num = len(targets)
-        ent_pos = [x for x in example.text_b if x[-1]>threshold]
-        target_qids, non_target_qids = split_ents(ent_pos, targets)
+        ent_pos = [x for x in example.text_b]
+        target_qids, non_target_qids = split_ents(ent_pos, targets, threshold, target_threshold)
 
         ex_text_a = ex_text_a[:h[1]] + "。 " + ex_text_a[h[1]:h[2]] + " 。" + ex_text_a[h[2]:]
         begin, end = h[1:3]
@@ -381,6 +382,9 @@ def main():
                         type=str)
     parser.add_argument("--entities_tsv", default=None, type=str, required=True,
                         help="entties files where descriptions are stored.")
+    parser.add_argument("--sort",
+                        default="short",
+                        type=str, help="short, long and random to sort descrip.")
     parser.add_argument("--max_parent",
                         default=3,
                         type=int)
@@ -463,6 +467,7 @@ def main():
                              "0 (default value): dynamic loss scaling.\n"
                              "Positive power of 2: static loss scaling value.\n")
     parser.add_argument('--threshold', type=float, default=.0)
+    parser.add_argument('--target_threshold', type=float, default=.0)
 
     args = parser.parse_args()
 
@@ -501,7 +506,7 @@ def main():
     processor = TypingProcessor()
 
     tokenizer_label = BertTokenizer_label.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
-    tokenizer = BertTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
+    tokenizer = BertTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case, sort=args.sort)
 
     train_examples = None
     num_train_steps = None
@@ -590,13 +595,13 @@ def main():
       dev_examples = processor.get_dev_examples(args.data_dir)
       dev = convert_examples_to_features(
           dev_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
-          args.threshold, entity_id2parents, entity_id2label,
+          [args.threshold, args.target_threshold], entity_id2parents, entity_id2label,
           args.max_parent, qid2idx, 0)
 
       test_examples = processor.get_test_examples(args.data_dir)
       test = convert_examples_to_features(
           test_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
-          args.threshold, entity_id2parents, entity_id2label,
+          [args.threshold, args.target_threshold], entity_id2parents, entity_id2label,
           args.max_parent, qid2idx, 0)
 
       if mode == "dev":
@@ -710,7 +715,7 @@ def main():
     if args.do_train:
         train_features = convert_examples_to_features(
             train_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer,
-            args.threshold, entity_id2parents, entity_id2label,
+            [args.threshold, args.target_threshold], entity_id2parents, entity_id2label,
             args.max_parent, qid2idx)
         logger.info("***** Running training *****")
         logger.info("  Num examples = %d", len(train_examples))

@@ -366,6 +366,9 @@ def main():
     parser.add_argument("--emb_base",
                         default="descrip",
                         type=str)
+    parser.add_argument("--sort",
+                        default="short",
+                        type=str, help="short, long and random to sort descrip.")
     parser.add_argument("--entities_tsv", default=None, type=str, required=True,
                         help="entties files where descriptions are stored.")
     parser.add_argument("--max_parent",
@@ -494,7 +497,8 @@ def main():
     processor = processors()
     label_list = None
 
-    tokenizer = BertTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
+    tokenizer = BertTokenizer.from_pretrained(args.ernie_model,
+        do_lower_case=args.do_lower_case, sort=args.sort)
 
     train_examples = None
     num_train_steps = None
