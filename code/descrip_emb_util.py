@@ -9,8 +9,34 @@ from knowledge_bert.tokenization import BertTokenizer
 from knowledge_bert.modeling import BertForFeatureEmbs
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 
+def split_ents(ents, targets, threshold, target_threshold):
+  """Split ents into target and non-target
+  targets: list of target entity in text
+  returns: qids of target and nontarget ent
+  """
+  target_qids = []
+  non_target_qids = []
+  for i, ent in enumerate(ents, 0):
+    ent_start = ent[1]
+    ent_end = ent[2]
+    qid = ent[0]
+    confidence = ent[3]
+    is_target = False
+    for target in targets:
+      target_start = target[1]
+      target_end = target[2]
+      if ent_start == target_start and ent_end == target_end:
+        is_target = True
 
-def split_ents(ents, targets):
+    if confidence > threshold:
+      non_target_qids.append(qid)
+    if is_target and confidence > target_threshold:
+      target_qids.append(qid)
+
+  return target_qids, non_target_qids
+
+
+def split_ents_no_mix(ents, targets):
   """Split ents into target and non-target
   targets: list of target entity in text
   returns: qids of target and nontarget ent

@@ -211,9 +211,12 @@ class BertTokenizer(object):
                     if ent in target_qids:
                       split_target_ents.append(parents)
                       split_target_pos.append(len(split_tokens) - 1)
-                      split_nontgt_ents.append(["UNK"] * max_parent)
-                    else:
+
+                    # ent can also be in nontarget at same time.
+                    if ent in non_target_qids:
                       split_nontgt_ents.append(parents)
+                    else:
+                      split_nontgt_ents.append(["UNK"] * max_parent)
 
                     mark = False
                 else:
