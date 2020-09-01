@@ -36,9 +36,9 @@ class ResultRecorder(object):
     best_dev_idx = 0
     for test, dev in zip(self.test_results, self.dev_results):
       step = test[0]
-      test_result = test[1:]
-      dev_result = dev[1:]
-      if dev_result[-1] > self.dev_results[best_dev_idx][-1]:
+      test_result = test[1]
+      dev_result = dev[1]
+      if dev_result[-1] > self.dev_results[best_dev_idx][1][-1]:
         best_dev_idx = idx
       print(f"step:{step} dev:{dev_result} test:{test_result}")
       idx += 1
