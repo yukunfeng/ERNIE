@@ -489,9 +489,9 @@ def main():
     if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
 
-    if os.path.exists(args.output_dir) and os.listdir(args.output_dir) and args.do_train:
-        raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
-    os.makedirs(args.output_dir, exist_ok=True)
+    #  if os.path.exists(args.output_dir) and os.listdir(args.output_dir) and args.do_train:
+        #  raise ValueError("Output directory ({}) already exists and is not empty.".format(args.output_dir))
+    #  os.makedirs(args.output_dir, exist_ok=True)
 
 
     processor = processors()
@@ -713,7 +713,7 @@ def main():
         train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size)
 
         output_loss_file = os.path.join(args.output_dir, "loss")
-        loss_fout = open(output_loss_file, 'w')
+        #  loss_fout = open(output_loss_file, 'w')
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
@@ -741,7 +741,7 @@ def main():
                 else:
                     loss.backward()
 
-                loss_fout.write("{}\n".format(loss.item()))
+                #  loss_fout.write("{}\n".format(loss.item()))
                 tr_loss += loss.item()
                 nb_tr_examples += input_ids.size(0)
                 nb_tr_steps += 1

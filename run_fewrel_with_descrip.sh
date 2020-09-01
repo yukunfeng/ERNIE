@@ -13,7 +13,9 @@ set -x
 model="bert_base"
 
 data="data/fewrel"
-max_parent=1
+max_parents=(5 1)
+thre=0.3
+tgt_thre=0.0
 
 layer=-2
 emb_base="fewrel_descrip_emb_layer${layer}"
