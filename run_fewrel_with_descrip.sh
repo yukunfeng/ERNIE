@@ -14,14 +14,16 @@ model="bert_base"
 
 data="data/fewrel"
 max_parents=(5 1)
-thre=0.3
-tgt_thre=0.0
+thre=100
+tgt_thre=100
+sort="short"
 
 layer=-2
 emb_base="fewrel_descrip_emb_layer${layer}"
 
 entities_tsv="/home/lr/yukun/kg-bert/entities.slimed.tsv"
 output="${model}_$(basename $data)_descrip_output_layer${layer}"
+rm -rf $output
 
 # First generate descrip embs.
 python ./code/descrip_emb_util.py \
@@ -38,10 +40,9 @@ max_parents=(1)
 
 for max_parent in "${max_parents[@]}"
 do
-    rm -rf $output
-    python3 code/run_fewrel_with_split_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv
+    note="P${max_parent} L${layer} tgtt${tgt_thre} thre${thre}"
+    python3 code/run_fewrel_with_split_descrip.py --note $note --target_threshold $tgt_thre --sort $sort --threshold $thre --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv
     # python3 code/run_fewrel_with_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv
-    echo "above result, max_parent: $max_parent"
 done
 
 # evaluate

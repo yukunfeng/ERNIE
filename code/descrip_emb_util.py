@@ -9,6 +9,47 @@ from knowledge_bert.tokenization import BertTokenizer
 from knowledge_bert.modeling import BertForFeatureEmbs
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 
+class ResultRecorder(object):
+  """"""
+  def __init__(self, note=None):
+    self.test_results = []
+    self.dev_results = []
+    self.note = note
+
+  def record(self, current_step, result, mode):
+    result = self._format_result(result)
+
+    if mode == "test":
+      self.test_results.append([current_step, result])
+    elif mode == "dev":
+      self.dev_results.append([current_step, result])
+    else:
+      raise Exception(f"{mode} not supported")
+    
+  def _format_result(self, result):
+    _result = [f"{s * 100: 5.2f}" for s in result]
+    _result = [float(s) for s in _result]
+    return _result
+
+  def print(self):
+    idx = 0
+    best_dev_idx = 0
+    for test, dev in zip(self.test_results, self.dev_results):
+      step = test[0]
+      test_result = test[1:]
+      dev_result = dev[1:]
+      if dev_result[-1] > self.dev_results[best_dev_idx][-1]:
+        best_dev_idx = idx
+      print(f"step:{step} dev:{dev_result} test:{test_result}")
+      idx += 1
+    print(f"best dev: {self.dev_results[best_dev_idx]}")
+    print(f"test of best dev: {self.test_results[best_dev_idx]}")
+    print(f"note:{self.note}")
+    print("")
+    print("")
+    print("")
+
+
 def split_ents(ents, targets, threshold, target_threshold):
   """Split ents into target and non-target
   targets: list of target entity in text

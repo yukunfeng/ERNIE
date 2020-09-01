@@ -38,6 +38,7 @@ from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from descrip_emb_util import load_descrip
 from descrip_emb_util import split_ents
+from descrip_emb_util import ResultRecorder
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -468,8 +469,10 @@ def main():
                              "Positive power of 2: static loss scaling value.\n")
     parser.add_argument('--threshold', type=float, default=.0)
     parser.add_argument('--target_threshold', type=float, default=.0)
+    parser.add_argument('--note', type=str)
 
     args = parser.parse_args()
+    rr = ResultRecorder(note=args.note)
 
     entity_id2label, entity_id2parents, qid2idx, descrip_embs = load_descrip(args.emb_base, args.entities_tsv)
     if args.local_rank == -1 or args.no_cuda:
@@ -700,17 +703,20 @@ def main():
               precision = 0.
           recall = num_correct_labels / num_true_labels
           return precision, recall, f1( precision, recall)
+              #  'micro': [f"{s * 100: 5.2f}" for s in loose_micro(true, pred)],
+              #  'macro': [f"{s * 100: 5.2f}" for s in loose_macro(true, pred)],
       result = {
               'mode': mode,
               'current_step': current_step,
-              'micro': [f"{s * 100: 5.2f}" for s in loose_micro(true, pred)],
-              'macro': [f"{s * 100: 5.2f}" for s in loose_macro(true, pred)],
+              'micro': loose_micro(true, pred),
+              'macro': loose_macro(true, pred),
               'eval_accuracy': eval_accuracy,
               'eval_loss': eval_loss,
               }
 
       logger.info(f"***** Eval results on {mode} *****")
       logger.info(f"{result}")
+      rr.record(current_step, result["micro"], mode)
 
     if args.do_train:
         train_features = convert_examples_to_features(
@@ -789,7 +795,7 @@ def main():
             #  torch.save(model_to_save.state_dict(), output_model_file)
         do_eval("test", global_step)
         do_eval("dev", global_step)
-        logger.info("\n\n\n\n Finished! \n\n\n\n\n\n\n")
+        rr.print()
     exit(0)
 
 if __name__ == "__main__":

@@ -41,6 +41,7 @@ from knowledge_bert.optimization import BertAdam
 from knowledge_bert.file_utils import PYTORCH_PRETRAINED_BERT_CACHE
 from descrip_emb_util import load_descrip
 from descrip_emb_util import split_ents
+from descrip_emb_util import ResultRecorder
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -454,8 +455,10 @@ def main():
                              "Positive power of 2: static loss scaling value.\n")
     parser.add_argument('--threshold', type=float, default=.0)
     parser.add_argument('--target_threshold', type=float, default=.0)
+    parser.add_argument('--note', type=str)
 
     args = parser.parse_args()
+    rr = ResultRecorder(note=args.note)
 
     entity_id2label, entity_id2parents, qid2idx, descrip_embs = load_descrip(args.emb_base, args.entities_tsv)
     processors = TacredProcessor
@@ -561,7 +564,7 @@ def main():
     global_step = 0
 
 
-    def do_eval(mode="test"):
+    def do_eval(mode="test", current_step=None):
       dev_examples = processor.get_dev_examples(args.data_dir)
       dev = convert_examples_to_features(
           dev_examples, label_list, args.max_seq_length, tokenizer,
@@ -664,6 +667,7 @@ def main():
                 'eval_accuracy': eval_accuracy ,
                 'p': p, 'r':r, 'f': f
                 }
+      rr.record(current_step, [p, r, f], mode)
 
       logger.info(f"***** Eval results on {mode} *****")
       logger.info(f"***** {result} *****")
@@ -714,7 +718,7 @@ def main():
 
         output_loss_file = os.path.join(args.output_dir, "loss")
         #  loss_fout = open(output_loss_file, 'w')
-        for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+        for epoch in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
             model.train()
@@ -753,12 +757,17 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
+                    if epoch >= args.num_train_epochs - 1 and global_step % 150 == 0 and global_step > 0:
+                        do_eval("test", global_step)
+                        do_eval("dev", global_step)
+                        model.train()
             #  model_to_save = model.module if hasattr(model, 'module') else model
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
             #  torch.save(model_to_save.state_dict(), output_model_file)
 
-        do_eval("test")
-        do_eval("dev")
+        do_eval("test", global_step)
+        do_eval("dev", global_step)
+        rr.print()
         # Save a trained model
         #  model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
         #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin")
