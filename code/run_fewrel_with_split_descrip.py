@@ -146,7 +146,7 @@ class FewrelProcessor(DataProcessor):
 
 
 def convert_examples_to_features(examples, label_list, max_seq_length,
-    tokenizer, threshold, entity_id2parents, entity_id2label, max_parent,
+    tokenizer, thresholds, entity_id2parents, entity_id2label, max_parent,
     qid2idx, verbose=2):
     """Loads a data file into a list of `InputBatch`s."""
     

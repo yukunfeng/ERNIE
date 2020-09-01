@@ -25,6 +25,7 @@ function run_tying() {
     local sort=$2
     local thre=$3
     local max_parent=$4
+    local layer=$5
     note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}sort${sort}"
     
     python code/run_openentity_with_split_descrip.py --note $note \
@@ -41,6 +42,7 @@ function run_tacred() {
     local sort=$2
     local thre=$3
     local max_parent=$4
+    local layer=$5
     note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}sort${sort}"
     
     python3 code/run_tacred_with_split_descrip.py --note $note \
@@ -58,6 +60,7 @@ function run_fewrel() {
     local sort=$2
     local thre=$3
     local max_parent=$4
+    local layer=$5
     note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}sort${sort}"
     
     python3 code/run_fewrel_with_split_descrip.py --note $note \
@@ -69,8 +72,12 @@ function run_fewrel() {
         --loss_scale 128 --entities_tsv $entities_tsv
 }
 
+layer=-2
+
 # Run typing
 data="data/OpenEntity"
 emb_base="$(basename $data)_descrip_emb_layer${layer}"
-gen_descrip_emb $data -2 $emb_base
-run_tying 100 short 100 100 5 
+gen_descrip_emb $data $layer $emb_base
+run_tying 100 short 100 5 $layer
+run_tying 100 short 0 5 $layer
+run_tying 100 short 0 1 $layer
