@@ -746,16 +746,20 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
-                    if epoch >= args.num_train_epochs - 1 and global_step % 150 == 0 and global_step > 0:
-                        do_eval("test", global_step)
-                        do_eval("dev", global_step)
-                        model.train()
+                    #  if epoch >= args.num_train_epochs - 1 and global_step % 150 == 0 and global_step > 0:
+                        #  do_eval("test", global_step)
+                        #  do_eval("dev", global_step)
+                        #  model.train()
             #  model_to_save = model.module if hasattr(model, 'module') else model
             #  output_model_file = os.path.join(args.output_dir, "pytorch_model.bin_{}".format(global_step))
             #  torch.save(model_to_save.state_dict(), output_model_file)
+            if epoch+1 >= 10:
+                do_eval("test", epoch+1)
+                do_eval("dev", epoch+1)
+                model.train()
 
-        do_eval("test", global_step)
-        do_eval("dev", global_step)
+        #  do_eval("test", global_step)
+        #  do_eval("dev", global_step)
         rr.print()
         # Save a trained model
         #  model_to_save = model.module if hasattr(model, 'module') else model  # Only save the model it-self
