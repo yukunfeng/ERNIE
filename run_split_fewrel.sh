@@ -8,6 +8,11 @@ data="data/fewrel"
 emb_base="$(basename $data)_descrip_emb_layer${layer}"
 # gen_descrip_emb $data $layer $emb_base
 
-# run_fewrel 100 short 0 5 $layer $emb_base
-
-run_fewrel 0 short 0 5 $layer $emb_base
+# run_fewrel 0 short 0 5 $layer $emb_base
+# run_fewrel 0.2 short 0.2 5 $layer $emb_base
+run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.02 2e-5
+run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.1 4e-5
+run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.1 3e-5
+run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.1 1e-5
+# run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.05
+# run_fewrel_with_warmuphyper 0 short 0 5 $layer $emb_base 0.15

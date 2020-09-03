@@ -37,16 +37,16 @@ rm -rf $output
     # --max_seq_length 10 \
     # --bert_layer $layer
 
-max_parents=(5 1)
+max_parents=(5)
 
 for max_parent in "${max_parents[@]}"
 do
     note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}"
-    python3 code/run_tacred_with_split_descrip.py --note $note --target_threshold $tgt_thre --sort $sort --threshold $thre --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
+    # python3 code/run_tacred_with_split_descrip.py --note $note --target_threshold $tgt_thre --sort $sort --threshold $thre --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
     # python3 code/run_tacred_with_split_descrip.py --threshold $thre --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
     # python3 code/run_tacred_with_split_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
     # python3 code/run_tacred_with_descrip.py --no_descrip --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
-    # python3 code/run_tacred_with_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
+    python3 code/run_tacred_with_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 4.0  --output_dir $output   --loss_scale 128 --entities_tsv $entities_tsv
 done
 
-# python ~/env_config/sending_emails.py -c "$0 succ: $? $model finished;"
+python ~/env_config/sending_emails.py -c "$0 succ: $? $model finished;"
