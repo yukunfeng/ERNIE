@@ -626,7 +626,7 @@ def main():
       all_labels = torch.tensor([f.labels for f in eval_features], dtype=torch.float)
       all_target_ent = torch.tensor([f.target_ent for f in eval_features], dtype=torch.long)
       all_target_pos = torch.tensor([f.split_target_pos for f in eval_features], dtype=torch.long)
-      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in train_features], dtype=torch.long)
+      all_target_ent_mask = torch.tensor([f.target_ent_mask for f in eval_features], dtype=torch.long)
       eval_data = TensorDataset(all_input_ids, all_input_mask, all_segment_ids,
         all_input_ent, all_ent_mask, all_labels, all_target_ent, all_target_pos, all_target_ent_mask)
       # Run prediction for full data
