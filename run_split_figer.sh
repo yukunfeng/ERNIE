@@ -28,7 +28,7 @@ emb_base="$(basename $data)_descrip_emb_layer${layer}"
 # run_figer 0.6 long 0.3 5 $layer $emb_base
 # run_figer 0.8 long 0.3 5 $layer $emb_base
 # run_figer 0.8 long 0.3 5 $layer $emb_base
-run_figer 0.8 long 0.8 5 $layer $emb_base
+run_figer 0.3 long 0.3 5 $layer $emb_base
 
 python ~/env_config/sending_emails.py -c "status: $? $0 figer"
 

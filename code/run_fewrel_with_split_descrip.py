@@ -707,8 +707,7 @@ def main():
 
         output_loss_file = os.path.join(args.output_dir, "loss")
         #  loss_fout = open(output_loss_file, 'w')
-        #  for epoch in trange(int(args.num_train_epochs), desc="Epoch"):
-        for epoch in trange(int(args.num_train_epochs) + 5, desc="Epoch"):
+        for epoch in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
             model.train()
