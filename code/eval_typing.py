@@ -468,8 +468,10 @@ def main():
 
         if mark:
             eval_examples = processor.get_dev_examples(args.data_dir)
+            logger.info(f"Following result is on dev on {x}")
         else:
             eval_examples = processor.get_test_examples(args.data_dir)
+            logger.info(f"Following result is on test on {x}")
         eval_features = convert_examples_to_features(
             eval_examples, label_list, args.max_seq_length, tokenizer_label, tokenizer, args.threshold)
         logger.info("***** Running evaluation *****")
