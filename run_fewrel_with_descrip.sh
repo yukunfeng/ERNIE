@@ -14,8 +14,6 @@ model="bert_base"
 
 data="data/fewrel"
 max_parents=(5 1)
-thre=100
-tgt_thre=100
 sort="short"
 
 layer=-2
@@ -26,26 +24,21 @@ output="${model}_$(basename $data)_descrip_output_layer${layer}"
 rm -rf $output
 
 # First generate descrip embs.
-python ./code/descrip_emb_util.py \
-    --data_dir "$data" \
-    --ernie_model $model \
-    --entities_tsv $entities_tsv\
-    --do_lower_case \
-    --threshold 0.0 \
-    --output_base "$emb_base" \
-    --max_seq_length 10 \
-    --bert_layer $layer
+# python ./code/descrip_emb_util.py \
+    # --data_dir "$data" \
+    # --ernie_model $model \
+    # --entities_tsv $entities_tsv\
+    # --do_lower_case \
+    # --threshold 0.0 \
+    # --output_base "$emb_base" \
+    # --max_seq_length 10 \
+    # --bert_layer $layer
 
-max_parents=(1)
+max_parents=(5)
 
 for max_parent in "${max_parents[@]}"
 do
-    note="P${max_parent} L${layer} tgtt${tgt_thre} thre${thre}"
-    python3 code/run_fewrel_with_split_descrip.py --note $note --target_threshold $tgt_thre --sort $sort --threshold $thre --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv
-    # python3 code/run_fewrel_with_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv
+    python3 code/run_fewrel_with_descrip.py --max_parent $max_parent --emb_base $emb_base  --do_train   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 16   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128 --entities_tsv $entities_tsv --threshold 0
 done
-
-# evaluate
-# python3 code/eval_fewrel.py   --do_eval   --do_lower_case   --data_dir $data   --ernie_model $model   --max_seq_length 256   --train_batch_size 32   --learning_rate 2e-5   --num_train_epochs 10   --output_dir $output      --loss_scale 128
 
 python ~/env_config/sending_emails.py -c "$0 succ: $? $model finished;"

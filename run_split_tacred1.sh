@@ -41,9 +41,17 @@ emb_base="$(basename $data)_descrip_emb_layer${layer}"
 # run_tacred 0.3 short 0.3 1 $layer $emb_base
 
 
+run_tacred_with_warmuphyper 0.5 short 0.5 5 $layer $emb_base 0.1 4e-5
 # run_tacred_with_warmuphyper 0.3 short 0.3 5 $layer $emb_base 0.1 4e-5
-run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.05 4e-5 4
-run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 3e-5 4
-run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 4e-5 6
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.05 4e-5 4
+# run_tacred_with_warmuphyper_e 100 short 100 5 $layer $emb_base 0.1 3e-5 4
+# run_tacred_with_warmuphyper_e 100 short 0.3 5 $layer $emb_base 0.1 3e-5 4
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 3e-5 4
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 3e-5 5
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 5e-5 4
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 3e-5 6
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.05 3e-5 4
+# run_tacred_with_warmuphyper_e 0.3 short 0.3 5 $layer $emb_base 0.1 4e-5 6
 # run_tacred_with_warmuphyper 0.3 short 0.3 5 $layer $emb_base 0.2 2e-5
 # run_tacred_with_warmuphyper 0.3 short 0.3 5 $layer $emb_base 0.1 5e-5
+python ~/env_config/sending_emails.py -c "$0 status: $?"

@@ -128,6 +128,6 @@ function run_fewrel_with_warmuphyper() {
         --max_parent $max_parent --emb_base $emb_base  --do_train   \
         --do_lower_case   --data_dir "./data/fewrel"   --ernie_model $model   \
         --max_seq_length 256   --train_batch_size 16   --learning_rate $lr  \
-        --num_train_epochs 12   --output_dir "tmp"      \
+        --num_train_epochs 10   --output_dir "tmp"      \
         --loss_scale 128 --entities_tsv $entities_tsv --warmup_proportion $warmup
 }
