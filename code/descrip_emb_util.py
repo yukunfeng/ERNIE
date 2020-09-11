@@ -227,6 +227,20 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
         descrip_ids[parent_qid] = 0
       descrip_ids[parent_qid] += 1
 
+  # Add length statistics of description
+  descrip_len_sum = 0
+  tokenizer = BertTokenizer.from_pretrained('bert_base', do_lower_case=True)
+  for descrip_id, freq in descrip_ids.items():
+    descrip_label = tokenizer.wordpiece_tokenizer.tokenize(entity_id2label[descrip_id].lower())
+    #  descrip_label = entity_id2label[descrip_id].split()
+    #  descrip_len = len(descrip_label) * freq
+    descrip_len = len(descrip_label)
+    descrip_len_sum += descrip_len
+  print(f"descrip_len_sum: {descrip_len_sum}")
+  #  avg_len_per_descrip = descrip_len_sum / sum(descrip_ids.values())
+  avg_len_per_descrip = descrip_len_sum / len(descrip_ids.keys())
+  print(f"avg_len_per_descrip: {avg_len_per_descrip}")
+
   import collections
   sorted_dict = collections.OrderedDict(
       sorted(valid_qid_count.items(), reverse=True, key=lambda t: t[1])
@@ -459,8 +473,8 @@ if __name__ == "__main__":
   
   args = parser.parse_args()
 
-  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  prepare_desrip_ebm(qid2descrip, args)
+  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  #  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  #  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
+  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
