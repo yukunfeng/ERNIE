@@ -8,6 +8,7 @@ function gen_descrip_emb() {
     local data="$data"
     local layer=$2
     local emb_base=$3
+    local add_postion=$4
 
     python ./code/descrip_emb_util.py \
         --data_dir "$data" \
@@ -17,6 +18,7 @@ function gen_descrip_emb() {
         --threshold 0.0 \
         --output_base "$emb_base" \
         --max_seq_length 10 \
+        --add_postion $add_postion \
         --bert_layer $layer
 }
 

@@ -399,7 +399,9 @@ def prepare_desrip_ebm(qid2descrip, args):
     segment_ids = segment_ids.to(device)
     #  all_label_ids.extend(label_ids)
     with torch.no_grad():
-        embedding_output, encoded_layers = model(input_ids=input_ids, token_type_ids=segment_ids, attention_mask=input_mask)
+        embedding_output, encoded_layers = model(input_ids=input_ids,
+            token_type_ids=segment_ids, attention_mask=input_mask,
+            add_postion=bool(args.add_postion))
         if args.bert_layer != -2:
           #  Only get first token embedding to represent whole description
           descrip_out = encoded_layers[args.bert_layer][:, 0]
@@ -469,12 +471,16 @@ if __name__ == "__main__":
                       default=False,
                       action='store_true',
                       help="Set this flag if you are using an uncased model.")
+  parser.add_argument("--add_postion",
+                      default=0,
+                      type=int,
+                      help="if add position emb to distingush order")
   parser.add_argument('--threshold', type=float, default=.0)
   
   args = parser.parse_args()
 
-  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  #  prepare_desrip_ebm(qid2descrip, args)
+  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
+  #  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
