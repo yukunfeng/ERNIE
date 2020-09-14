@@ -162,8 +162,20 @@ def load_wikidata(prep_input_path: str):
       wiki_title2id[wiki_title.lower().strip()] = entity_id
   return wiki_title2id, entity_id2label, entity_id2parents
 
+def statistics_qids_all(path_dir, entities_tsv, confidence_thre=0.0, mode="all", data_type="train"):
+  # Obtain parent node of current qids.
+  ret = load_wikidata(entities_tsv)
+  #  ret = load_wikidata("/Users/yukun/workspace/kg-bert/entities.slimed.tsv")
+  _, entity_id2label, entity_id2parents = ret
+  data_types = "train dev test".split()
+  modes = "all target".split()
+  for data_type in data_types:
+    for mode in modes:
+      print(f"{path_dir}, {data_type}, {mode}")
+      statistics_qids(path_dir, confidence_thre=confidence_thre, mode=mode, data_type=data_type, entity_id2label=entity_id2label, entity_id2parents=entity_id2parents)
+      print(f"-------")
 
-def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
+def statistics_qids(path_dir, confidence_thre=0.0, mode="all", data_type="train", entity_id2label=None, entity_id2parents=None):
   qids_required = {}
   target_qids = {}
 
@@ -173,7 +185,7 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
         file_path = os.path.join(file_dir, filename)
         if not file_path.endswith("json"):
           continue
-        if file_path.find("train") < 0:
+        if file_path.find(data_type) < 0:
           continue
         with open(file_path, 'r') as myfile:
           data = json.loads(myfile.read())
@@ -205,16 +217,12 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
                 qids_required[qid] = 0
               qids_required[qid] += 1
 
-  # Obtain parent node of current qids.
-  ret = load_wikidata(entities_tsv)
-  #  ret = load_wikidata("/Users/yukun/workspace/kg-bert/entities.slimed.tsv")
-  _, entity_id2label, entity_id2parents = ret
-
   if mode == "target":
     qids_required = target_qids
 
   valid_qid_count = {}
   descrip_ids = {}
+  qid2parent_num = {}
   for qid, freq in qids_required.items():
     if qid not in entity_id2parents:
       continue
@@ -223,10 +231,16 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
       if parent_qid not in entity_id2label:
         continue
       valid_qid_count[qid] = freq
+      if qid not in qid2parent_num:
+        qid2parent_num[qid] = 0
+      qid2parent_num[qid] += 1
       if parent_qid not in descrip_ids:
         descrip_ids[parent_qid] = 0
       descrip_ids[parent_qid] += 1
 
+  # Add num of descrip per qid
+  avg_descrip_num_per_qid = sum(qid2parent_num.values()) / len(qid2parent_num.keys())
+  print(f"avg_descrip_num_per_qid: {avg_descrip_num_per_qid}")
   # Add length statistics of description
   descrip_len_sum = 0
   tokenizer = BertTokenizer.from_pretrained('bert_base', do_lower_case=True)
@@ -248,7 +262,7 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
   freq_sum = sum(sorted_dict.values())
   valid_qid_num = len(sorted_dict.keys())
   avg_valid = freq_sum / valid_qid_num
-  print(f"sum: {freq_sum}")
+  print(f"#valid entities: {freq_sum}")
   print(f"avg_valid: {avg_valid}")
   print(f"valid_qid_num: {valid_qid_num}")
   full_freq_sum = sum(qids_required.values())
@@ -276,9 +290,9 @@ def statistics_qids(path_dir, entities_tsv, confidence_thre=0.0, mode="all"):
       sorted(descrip_ids.items(), reverse=True, key=lambda t: t[1])
   )
   idx = 0
-  for k, v in descrip_ids.items():
-      print(f"{idx}\t{v}")
-      idx += 1
+  #  for k, v in descrip_ids.items():
+      #  print(f"{idx}\t{v}")
+      #  idx += 1
   
 
 def collect_qids(path_dir, entities_tsv, confidence_thre=0.0):
@@ -476,11 +490,13 @@ if __name__ == "__main__":
                       type=int,
                       help="if add position emb to distingush order")
   parser.add_argument('--threshold', type=float, default=.0)
+  parser.add_argument("--data_type", default="train", type=str, required=False,
+                      help="Ernie pre-trained model")
   
   args = parser.parse_args()
 
-  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  prepare_desrip_ebm(qid2descrip, args)
+  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  #  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  #  qid2descrip = statistics_qids(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
+  qid2descrip = statistics_qids_all(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
