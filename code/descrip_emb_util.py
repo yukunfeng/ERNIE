@@ -495,8 +495,8 @@ if __name__ == "__main__":
   
   args = parser.parse_args()
 
-  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  #  prepare_desrip_ebm(qid2descrip, args)
+  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  prepare_desrip_ebm(qid2descrip, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
-  qid2descrip = statistics_qids_all(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)
+  #  qid2descrip = statistics_qids_all(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)

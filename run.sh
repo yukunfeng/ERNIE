@@ -5,7 +5,7 @@ model="bert_base"
 entities_tsv="/home/lr/yukun/kg-bert/entities.slimed.tsv"
 
 function gen_descrip_emb() {
-    local data="$data"
+    local data=$1
     local layer=$2
     local emb_base=$3
     local add_postion=$4
@@ -123,7 +123,8 @@ function run_fewrel_with_warmuphyper() {
     local emb_base=$6
     local warmup=$7
     local lr=$8
-    note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}sort${sort}warm${warmup}lr${lr}"
+    local seed=$9
+    note="P${max_parent}L${layer}tgtt${tgt_thre}thre${thre}sort${sort}warm${warmup}lr${lr}seed${seed}"
     
     python3 code/run_fewrel_with_split_descrip.py --note $note \
         --target_threshold $tgt_thre --sort $sort --threshold $thre \
@@ -131,5 +132,6 @@ function run_fewrel_with_warmuphyper() {
         --do_lower_case   --data_dir "./data/fewrel"   --ernie_model $model   \
         --max_seq_length 256   --train_batch_size 16   --learning_rate $lr  \
         --num_train_epochs 10   --output_dir "tmp"      \
-        --loss_scale 128 --entities_tsv $entities_tsv --warmup_proportion $warmup
+        --loss_scale 128 --entities_tsv $entities_tsv --warmup_proportion $warmup \
+        --seed $seed
 }
