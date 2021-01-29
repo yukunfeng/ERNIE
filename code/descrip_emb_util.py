@@ -390,7 +390,7 @@ def prepare_for_random_ent(path_dir, entities_tsv, confidence_thre=0.0, args=Non
       idx += 1
       break
 
-  descrip_outs= torch.nn.Embedding(len(qid2idx.keys()), 768, device="cuda")
+  descrip_outs= torch.nn.Embedding(len(qid2idx.keys()), 768)
   descrip_outs = descrip_outs.weight.data
   os.system(f"rm -rf {args.output_base}.pt")
   torch.save(descrip_outs, f"{args.output_base}.pt")
