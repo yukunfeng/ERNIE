@@ -347,6 +347,58 @@ class Feature(object):
     self.label_id = label_id
     
 
+def prepare_for_random_ent(path_dir, entities_tsv, confidence_thre=0.0, args=None):
+  qids_required = {}
+
+  for file_dir, _, filenames in os.walk(path_dir):
+      for filename in filenames:
+        file_path = os.path.join(file_dir, filename)
+        if not file_path.endswith("json"):
+          continue
+        with open(file_path, 'r') as myfile:
+          data = json.loads(myfile.read())
+          sent_count = 0
+          linked_ent_count = 0
+          for item in data:
+            if 'ann' in item:
+              ents = item['ann']
+            else:
+              ents = item['ents']
+            sent_count += 1
+            for ent in ents:
+              qid = ent[0]
+              confidence = float(ent[3])
+              if confidence < confidence_thre:
+                continue
+              qids_required[qid] = 1
+
+  # Obtain parent node of current qids.
+  ret = load_wikidata(entities_tsv)
+  #  ret = load_wikidata("/Users/yukun/workspace/kg-bert/entities.slimed.tsv")
+  _, entity_id2label, entity_id2parents = ret
+
+  qid2idx = {}
+  idx = 0
+  for qid, _ in qids_required.items():
+    if qid not in entity_id2parents:
+      continue
+    parent_qids = entity_id2parents[qid]
+    for parent_qid in parent_qids:
+      if parent_qid not in entity_id2label:
+        continue
+      qid2idx[qid] = idx
+      idx += 1
+      break
+
+  descrip_outs= torch.nn.Embedding(len(qid2idx.keys()), 768, device="cuda")
+  descrip_outs = descrip_outs.weight.data
+  os.system(f"rm -rf {args.output_base}.pt")
+  torch.save(descrip_outs, f"{args.output_base}.pt")
+  os.system(f"rm -rf {args.output_base}.pickle")
+  with open(f"{args.output_base}.pickle", "wb") as f:
+    pickle.dump(qid2idx, f)
+
+
 def prepare_desrip_ebm(qid2descrip, args):
   # Batching description
   tokenizer = BertTokenizer.from_pretrained(args.ernie_model, do_lower_case=args.do_lower_case)
@@ -495,8 +547,9 @@ if __name__ == "__main__":
   
   args = parser.parse_args()
 
-  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
-  prepare_desrip_ebm(qid2descrip, args)
+  #  qid2descrip = collect_qids(args.data_dir, args.entities_tsv, args.threshold)
+  #  prepare_desrip_ebm(qid2descrip, args)
+  qid2descrip = prepare_for_random_ent(args.data_dir, args.entities_tsv, args.threshold, args)
 
   #  load_descrip(args.output_base, args.entities_tsv)
   #  qid2descrip = statistics_qids_all(args.data_dir, args.entities_tsv, args.threshold, args.statistics_mode)

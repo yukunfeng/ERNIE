@@ -231,6 +231,38 @@ class BertTokenizer(object):
                     split_nontgt_ents.append(["UNK"] * max_parent)
         return split_tokens, split_target_ents, split_target_pos, split_nontgt_ents
 
+    def tokenize_with_split_descrip_random_ent(self, text, ents, entity_id2parents,
+        entity_id2label, target_qids, non_target_qids, max_parent=3):
+        split_tokens = []
+        split_target_ents = []
+        split_target_pos = []
+        split_nontgt_ents = []
+
+        for token, ent in self.basic_tokenizer.tokenize(text, ents):
+            mark = True
+            for sub_token in self.wordpiece_tokenizer.tokenize(token):
+                split_tokens.append(sub_token)
+                if ent in entity_id2parents and mark:
+                    parents = [ent]
+                    left_num = max_parent - len(parents)
+                    if left_num > 0:
+                      parents = parents + ["UNK"] * left_num
+
+                    if ent in target_qids:
+                      split_target_ents.append(parents)
+                      split_target_pos.append(len(split_tokens) - 1)
+
+                    # ent can also be in nontarget at same time.
+                    if ent in non_target_qids:
+                      split_nontgt_ents.append(parents)
+                    else:
+                      split_nontgt_ents.append(["UNK"] * max_parent)
+
+                    mark = False
+                else:
+                    split_nontgt_ents.append(["UNK"] * max_parent)
+        return split_tokens, split_target_ents, split_target_pos, split_nontgt_ents
+
     def tokenize_no_ent(self, text):
         split_tokens = []
         for token in text.lower().split():

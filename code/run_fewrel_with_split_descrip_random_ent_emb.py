@@ -191,7 +191,7 @@ def convert_examples_to_features(examples, label_list, max_seq_length,
             t[1] += 2
             t[2] += 2
         #  tokens_a, entities_a = tokenizer.tokenize_with_descrip(ex_text_a, [h, t], entity_id2parents, entity_id2label, max_parent)
-        tokens_a, split_target_ents, split_target_pos, entities_a = tokenizer.tokenize_with_split_descrip(
+        tokens_a, split_target_ents, split_target_pos, entities_a = tokenizer.tokenize_with_split_descrip_random_ent(
           ex_text_a, ent_pos, entity_id2parents, entity_id2label, target_qids,
           non_target_qids, max_parent)
         #  if len([x for x in entities_a if x!=["UNK"]*max_parent]) != 2:
@@ -372,7 +372,7 @@ def main():
                         default="short",
                         type=str, help="short, long and random to sort descrip.")
     parser.add_argument("--max_parent",
-                        default=3,
+                        default=1,
                         type=int)
     parser.add_argument("--data_dir",
                         default=None,
@@ -511,7 +511,7 @@ def main():
     # Prepare model
     model, _ = BertForSequenceClassificationSplitDescrip.from_pretrained(args.ernie_model,
               cache_dir=PYTORCH_PRETRAINED_BERT_CACHE / 'distributed_{}'.format(args.local_rank),
-              num_labels = num_labels, descrip_embs=descrip_embs)
+              num_labels = num_labels, descrip_embs=descrip_embs.to("cuda"))
     if args.fp16:
         model.half()
     model.to(device)
