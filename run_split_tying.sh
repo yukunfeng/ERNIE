@@ -28,5 +28,6 @@ emb_base="$(basename $data)_descrip_emb_layer${layer}"
 # run_tying 0.6 long 0.3 5 $layer $emb_base
 # run_tying 0.8 long 0.3 5 $layer $emb_base
 # run_tying 0.8 long 0.3 5 $layer $emb_base
-run_tying 0.8 long 0.3 5 $layer $emb_base
+# Here use this line to reproduce 76.31 score. (CUDA 10.0 and 10.1 are ok)
+run_tying 0.3 long 0.3 5 $layer $emb_base
 
